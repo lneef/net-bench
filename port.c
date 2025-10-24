@@ -1,4 +1,7 @@
+#include <stdlib.h>
+
 #include "port.h"
+
 
 static int port_init_cmdline(struct port_info *info, int argc, char **argv) {
   int opt, option_index;
