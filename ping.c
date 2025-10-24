@@ -1,6 +1,7 @@
 #include <bits/time.h>
 #include <generic/rte_cycles.h>
 #include <netinet/in.h>
+#include <rte_branch_prediction.h>
 #include <rte_common.h>
 #include <rte_cycles.h>
 #include <rte_eal.h>
@@ -29,9 +30,13 @@
 #include "statistics.h"
 #include "util.h"
 
+#define OFFSET                                                                 \
+  (sizeof(struct rte_ether_hdr) + sizeof(struct rte_ipv4_hdr) +                \
+   sizeof(struct rte_udp_hdr))
+
 struct pkt_content {
   struct timespec time;
-} __rte_packed;
+} __rte_packed __rte_aligned(alignof(struct timespec));
 
 static uint64_t sub(struct timespec *end, struct timespec *start) {
   uint64_t sec, nsec;
@@ -48,19 +53,16 @@ static uint64_t sub(struct timespec *end, struct timespec *start) {
 static void handle_pong(struct port_info *info, struct rte_mbuf **pkts,
                         uint16_t nb_rx) {
   alignas(struct timespec) struct pkt_content pc, rc;
-  uint64_t burst_time;
+  uint64_t burst_time = 0;
   clock_gettime(CLOCK_MONOTONIC, &pc.time);
   for (uint16_t i = 0; i < nb_rx; ++i) {
-    uint8_t *data = rte_pktmbuf_mtod_offset(pkts[i], uint8_t *,
-                                            sizeof(struct rte_ether_hdr) +
-                                                sizeof(struct rte_ipv4_hdr) +
-                                                sizeof(struct rte_udp_hdr));
+    uint8_t *data = rte_pktmbuf_mtod_offset(pkts[i], uint8_t *, OFFSET);
     if (packet_verify_cksum(pkts[i])) {
       ++info->statistics->cksum_incorrect;
       continue;
     }
     PUN(&rc, data, typeof(rc));
-    burst_time = sub(&pc.time, &rc.time);
+    burst_time += sub(&pc.time, &rc.time);
     ++info->statistics->received;
   }
   rte_pktmbuf_free_bulk(pkts, nb_rx);
@@ -71,10 +73,7 @@ static void add_timestamp(struct port_info *info, struct rte_mbuf **pkts) {
   alignas(struct timespec) struct pkt_content pc;
   clock_gettime(CLOCK_MONOTONIC, &pc.time);
   for (uint16_t i = 0; i < info->burst_size; ++i) {
-    uint8_t *data = rte_pktmbuf_mtod_offset(pkts[i], uint8_t *,
-                                            sizeof(struct rte_ether_hdr) +
-                                                sizeof(struct rte_ipv4_hdr) +
-                                                sizeof(struct rte_udp_hdr));
+    uint8_t *data = rte_pktmbuf_mtod_offset(pkts[i], uint8_t *, OFFSET);
     PUN(data, &pc, typeof(pc));
     packet_ipv4_udp_cksum(pkts[i], info);
   }
@@ -109,7 +108,7 @@ int lcore_receiver(void *port) {
   for (; rte_get_timer_cycles() < end;) {
     rx_nb = rte_eth_rx_burst(pinfo->port_id, pinfo->rx_queue, rpkts,
                              pinfo->burst_size);
-    if (rx_nb)
+    if (unlikely(rx_nb))
       handle_pong(pinfo, rpkts, rx_nb);
   }
   return 0;
@@ -157,21 +156,19 @@ int lcore_sender_single(void *port) {
     rte_log(RTE_LOG_ERR, RTE_LOGTYPE_USER1, "No memory\n");
     return -ENOMEM;
   }
-  struct rte_mbuf *rpkts[BURST_SIZE];
   pinfo->statistics =
       rte_calloc(NULL, 1, sizeof(struct stat), RTE_CACHE_LINE_MIN_SIZE);
   if (!pinfo->statistics) {
     rte_log(RTE_LOG_ERR, RTE_LOGTYPE_USER1, "No memory\n");
     return -ENOMEM;
   }
-  uint16_t rx_nb;
-
   struct rte_mbuf *pkts[BURST_SIZE];
+  struct rte_mbuf *rpkts[BURST_SIZE];
   uint16_t tx_nb = pinfo->burst_size;
   uint64_t wait_cycles = time_between_bursts(pinfo->pps, pinfo->burst_size);
   uint64_t cycles = rte_get_timer_cycles();
   uint64_t end = pinfo->rtime * rte_get_timer_hz() + cycles;
-  for (; cycles < end;) {
+  for (; rte_get_timer_cycles() < end;) {
     if (rte_pktmbuf_alloc_bulk(pinfo->mbuf_pool, pkts, tx_nb)) {
       rte_log(RTE_LOG_ERR, RTE_LOGTYPE_USER1,
               "Failed to allocated burst of size %u\n", tx_nb);
@@ -185,14 +182,16 @@ int lcore_sender_single(void *port) {
                              pinfo->burst_size);
     pinfo->submit_statistics->subitted += tx_nb;
     cycles += wait_cycles;
-    // Busy wait: bit wasteful but reduces jitter
+    uint16_t rx_nb, rx_total = 0;
+    // wait until time slice expires (pps)
     do {
       rx_nb = rte_eth_rx_burst(pinfo->port_id, pinfo->rx_queue, rpkts,
                                pinfo->burst_size);
       if (rx_nb)
         handle_pong(pinfo, rpkts, rx_nb);
+      rx_total += rx_nb;
 
-    } while (rte_get_timer_cycles() < cycles);
+    } while (rx_total < tx_nb && rte_get_timer_cycles() < cycles);
   }
   return 0;
 }
