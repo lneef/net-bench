@@ -72,7 +72,7 @@ static int lcore_pong(void *port) {
   for (;!terminate;) {
     nb_rx =
         rte_eth_rx_burst(info->port_id, info->rx_queue, pkts + nb_rm, info->burst_size - nb_rm);
-    int j = 0,i = nb_rm + nb_rx;
+    int j = 0, i = nb_rm + nb_rx - 1;
     for (; i >= 0; --i, ++j) {
       pkts_out[j] = pkts[i];
       ret = handle_packet(info, pkts_out[j], packet_pong_ctor);
