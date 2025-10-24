@@ -77,7 +77,6 @@ void packet_arp_ctor(struct rte_mbuf *mbuf, struct port_info *info) {
 
 void packet_ipv4_cksum(struct rte_mbuf *mbuf, struct port_info *info) {
     struct rte_ipv4_hdr *ipv4 = rte_pktmbuf_mtod_offset(mbuf, struct rte_ipv4_hdr*, sizeof(struct rte_ether_hdr));
-    ipv4->hdr_checksum = rte_ipv4_cksum(ipv4);
     if(!info->pkt_config.ipv4.chcksum_offload)
         ipv4->hdr_checksum = rte_ipv4_cksum(ipv4);
     else
@@ -96,8 +95,8 @@ void packet_udp_cksum(struct rte_mbuf *mbuf, struct port_info *info){
 }
 
 void packet_ipv4_udp_cksum(struct rte_mbuf *mbuf, struct port_info *info) {
-    packet_ipv4_cksum(mbuf, info);
     packet_udp_cksum(mbuf, info);
+    packet_ipv4_cksum(mbuf, info);
 }
 
 int packet_verify_cksum(struct rte_mbuf *mbuf) {
