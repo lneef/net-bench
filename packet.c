@@ -71,7 +71,8 @@ void packet_arp_ctor(struct rte_mbuf *mbuf, struct port_info *info) {
                       &arp_hdr->arp_data.arp_sha);
   arp_hdr->arp_data.arp_sip = info->pkt_config.ipv4.src_ip;
   arp_hdr->arp_data.arp_tip = info->pkt_config.ipv4.dst_ip;
-  mbuf->pkt_len += sizeof(struct rte_arp_hdr);  
+  mbuf->pkt_len += sizeof(struct rte_arp_hdr); 
+  mbuf->data_len += sizeof(struct rte_arp_hdr);
 }
 
 void packet_ipv4_cksum(struct rte_mbuf *mbuf, struct port_info *info) {
