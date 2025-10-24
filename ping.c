@@ -54,10 +54,7 @@ static void handle_pong(struct port_info *info, struct rte_mbuf **pkts,
     uint8_t *data = rte_pktmbuf_mtod_offset(pkts[i], uint8_t *,
                                             sizeof(struct rte_ether_hdr) +
                                                 sizeof(struct rte_ipv4_hdr) +
-                                                sizeof(struct rte_udp_hdr));
-    struct rte_ipv4_hdr *ipv4 = rte_pktmbuf_mtod_offset(
-        pkts[i], struct rte_ipv4_hdr *, sizeof(struct rte_ether_hdr));
-    struct rte_udp_hdr *udp = (struct rte_udp_hdr *)(ipv4 + 1);
+                                                sizeof(struct rte_udp_hdr)); 
     if (packet_verify_cksum(pkts[i])) {
       ++info->statistics->cksum_incorrect;
       continue;

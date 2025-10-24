@@ -53,11 +53,8 @@ static int packet_pong_ctor(struct port_info *pinfo, struct rte_mbuf *pkt) {
 static int handle_packet(struct port_info *info, struct rte_mbuf *pkt,
                          packet_ipv4 ipv4_handler) {
   struct rte_ether_hdr *eth = rte_pktmbuf_mtod(pkt, struct rte_ether_hdr *);
-  rte_log(RTE_LOG_INFO, RTE_LOGTYPE_USER1, "Received packet type: 0x%04x\n",
-          rte_be_to_cpu_16(eth->ether_type));
   switch (rte_be_to_cpu_16(eth->ether_type)) {
   case RTE_ETHER_TYPE_ARP:
-    rte_log(RTE_LOG_INFO, RTE_LOGTYPE_USER1, "Processing ARP packet\n");
     return process_arp(pkt, info);
   case RTE_ETHER_TYPE_IPV4:
     return ipv4_handler(info, pkt);
