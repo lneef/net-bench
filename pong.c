@@ -5,7 +5,6 @@
 #include <rte_ethdev.h>
 #include <rte_ether.h>
 #include <rte_ip.h>
-#include <rte_ip4.h>
 #include <rte_launch.h>
 #include <rte_lcore.h>
 #include <rte_log.h>
