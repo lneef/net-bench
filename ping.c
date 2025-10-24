@@ -33,14 +33,14 @@ struct pkt_content {
   struct timespec time;
 } __rte_packed;
 
-static uint64_t sub(struct timespec end, struct timespec start) {
+static uint64_t sub(struct timespec *end, struct timespec *start) {
   uint64_t sec, nsec;
-  if (end.tv_nsec < start.tv_nsec) {
-    sec = end.tv_sec - start.tv_sec - 1;
-    nsec = 1e9 + end.tv_nsec - start.tv_sec;
+  if (end->tv_nsec < start->tv_nsec) {
+    sec = end->tv_sec - start->tv_sec - 1;
+    nsec = 1e9 + end->tv_nsec - start->tv_sec;
   } else {
-    sec = end.tv_sec - start.tv_sec;
-    nsec = end.tv_nsec - start.tv_nsec;
+    sec = end->tv_sec - start->tv_sec;
+    nsec = end->tv_nsec - start->tv_nsec;
   }
   return sec * 1e9 + nsec;
 }
@@ -49,7 +49,7 @@ static void handle_pong(struct port_info *info, struct rte_mbuf **pkts,
                         uint16_t nb_rx) {
   alignas(struct timespec) struct pkt_content pc, rc;
   uint64_t burst_time;
-  clock_gettime(CLOCK_MONOTONIC_RAW, &pc.time);
+  clock_gettime(CLOCK_MONOTONIC, &pc.time);
   for (uint16_t i = 0; i < nb_rx; ++i) {
     uint8_t *data = rte_pktmbuf_mtod_offset(pkts[i], uint8_t *,
                                             sizeof(struct rte_ether_hdr) +
@@ -60,7 +60,7 @@ static void handle_pong(struct port_info *info, struct rte_mbuf **pkts,
       continue;
     }
     PUN(&rc, data, typeof(rc));
-    burst_time = sub(pc.time, rc.time);
+    burst_time = sub(&pc.time, &rc.time);
     ++info->statistics->received;
   }
   rte_pktmbuf_free_bulk(pkts, nb_rx);
@@ -69,7 +69,7 @@ static void handle_pong(struct port_info *info, struct rte_mbuf **pkts,
 
 static void add_timestamp(struct port_info *info, struct rte_mbuf **pkts) {
   alignas(struct timespec) struct pkt_content pc;
-  clock_gettime(CLOCK_MONOTONIC_RAW, &pc.time);
+  clock_gettime(CLOCK_MONOTONIC, &pc.time);
   for (uint16_t i = 0; i < info->burst_size; ++i) {
     uint8_t *data = rte_pktmbuf_mtod_offset(pkts[i], uint8_t *,
                                             sizeof(struct rte_ether_hdr) +
