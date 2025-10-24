@@ -24,10 +24,10 @@
 #include <time.h>
 
 #include "arp.h"
+#include "packet.h"
 #include "port.h"
 #include "statistics.h"
 #include "util.h"
-#include "packet.h"
 
 struct pkt_content {
   struct timespec time;
@@ -54,7 +54,7 @@ static void handle_pong(struct port_info *info, struct rte_mbuf **pkts,
     uint8_t *data = rte_pktmbuf_mtod_offset(pkts[i], uint8_t *,
                                             sizeof(struct rte_ether_hdr) +
                                                 sizeof(struct rte_ipv4_hdr) +
-                                                sizeof(struct rte_udp_hdr)); 
+                                                sizeof(struct rte_udp_hdr));
     if (packet_verify_cksum(pkts[i])) {
       ++info->statistics->cksum_incorrect;
       continue;
@@ -109,7 +109,8 @@ int lcore_receiver(void *port) {
   for (; rte_get_timer_cycles() < end;) {
     rx_nb = rte_eth_rx_burst(pinfo->port_id, pinfo->rx_queue, rpkts,
                              pinfo->burst_size);
-    handle_pong(pinfo, rpkts, rx_nb);
+    if (rx_nb)
+      handle_pong(pinfo, rpkts, rx_nb);
   }
   return 0;
 }
@@ -148,6 +149,54 @@ int lcore_sender(void *port) {
   return 0;
 }
 
+int lcore_sender_single(void *port) {
+  struct port_info *pinfo = (struct port_info *)port;
+  pinfo->submit_statistics =
+      rte_calloc(NULL, 1, sizeof(struct submit_stat), RTE_CACHE_LINE_MIN_SIZE);
+  if (!pinfo->submit_statistics) {
+    rte_log(RTE_LOG_ERR, RTE_LOGTYPE_USER1, "No memory\n");
+    return -ENOMEM;
+  }
+  struct rte_mbuf *rpkts[BURST_SIZE];
+  pinfo->statistics =
+      rte_calloc(NULL, 1, sizeof(struct stat), RTE_CACHE_LINE_MIN_SIZE);
+  if (!pinfo->statistics) {
+    rte_log(RTE_LOG_ERR, RTE_LOGTYPE_USER1, "No memory\n");
+    return -ENOMEM;
+  }
+  uint16_t rx_nb;
+
+  struct rte_mbuf *pkts[BURST_SIZE];
+  uint16_t tx_nb = pinfo->burst_size;
+  uint64_t wait_cycles = time_between_bursts(pinfo->pps, pinfo->burst_size);
+  uint64_t cycles = rte_get_timer_cycles();
+  uint64_t end = pinfo->rtime * rte_get_timer_hz() + cycles;
+  for (; cycles < end;) {
+    if (rte_pktmbuf_alloc_bulk(pinfo->mbuf_pool, pkts, tx_nb)) {
+      rte_log(RTE_LOG_ERR, RTE_LOGTYPE_USER1,
+              "Failed to allocated burst of size %u\n", tx_nb);
+    }
+    for (int i = 0; i < tx_nb; ++i) {
+      packet_pp_ctor_udp(pkts[i], &pinfo->pkt_config,
+                         sizeof(struct pkt_content));
+    }
+    add_timestamp(pinfo, pkts);
+    tx_nb = rte_eth_tx_burst(pinfo->port_id, pinfo->tx_queue, pkts,
+                             pinfo->burst_size);
+    pinfo->submit_statistics->subitted += tx_nb;
+    cycles += wait_cycles;
+    // Busy wait: bit wasteful but reduces jitter
+    do {
+      rx_nb = rte_eth_rx_burst(pinfo->port_id, pinfo->rx_queue, rpkts,
+                               pinfo->burst_size);
+      if (rx_nb)
+        handle_pong(pinfo, rpkts, rx_nb);
+
+    } while (rte_get_timer_cycles() < cycles);
+  }
+  return 0;
+}
+
 int main(int argc, char *argv[]) {
   struct port_info *pinfo;
   int dpdk_argc = rte_eal_init(argc, argv);
@@ -160,10 +209,14 @@ int main(int argc, char *argv[]) {
     ret = -1;
     goto cleanup;
   }
-  int (*lcore_fun[])(void *) = {lcore_sender, lcore_receiver};
-  if (launch_lcores(lcore_fun, pinfo, 2) < 0) {
-    ret = -1;
-    goto cleanup;
+  if (pinfo->no_threading) {
+    lcore_sender_single(pinfo);
+  } else {
+    int (*lcore_fun[])(void *) = {lcore_sender, lcore_receiver};
+    if (launch_lcores(lcore_fun, pinfo, 2) < 0) {
+      ret = -1;
+      goto cleanup;
+    }
   }
   print_stats(pinfo);
   ret = 0;

@@ -2,14 +2,18 @@
 
 #include "port.h"
 
-
 static int port_init_cmdline(struct port_info *info, int argc, char **argv) {
   int opt, option_index;
   static const struct option long_options[] = {
-      {"dport", required_argument, 0, 0}, {"sport", required_argument, 0, 0},
-      {"dip", required_argument, 0, 0},   {"sip", required_argument, 0, 0},
-      {"pps", required_argument, 0, 0},   {"rt", required_argument, 0, 0},
-      {"bs", required_argument, 0, 0},    {0, 0, 0, 0}};
+      {"dport", required_argument, 0, 0},
+      {"sport", required_argument, 0, 0},
+      {"dip", required_argument, 0, 0},
+      {"sip", required_argument, 0, 0},
+      {"pps", required_argument, 0, 0},
+      {"rt", required_argument, 0, 0},
+      {"bs", required_argument, 0, 0},
+      {"st", no_argument, 0, 0},
+      {0, 0, 0, 0}};
   while ((opt = getopt_long(argc, argv, "", long_options, &option_index)) !=
          -1) {
     if (opt == '?')
@@ -36,6 +40,8 @@ static int port_init_cmdline(struct port_info *info, int argc, char **argv) {
     case 6:
       info->burst_size = atoi(optarg);
       break;
+    case 7:
+      info->no_threading = 1; 
     default:
       break;
     }

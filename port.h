@@ -62,6 +62,7 @@ struct port_info {
   uint16_t tx_queue;
   uint64_t pps;
   uint64_t rtime;
+  bool no_threading;
   struct stat *statistics;
   struct submit_stat *submit_statistics;
   struct packet_config pkt_config;

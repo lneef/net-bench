@@ -25,7 +25,8 @@
 
 static int terminate = 0;
 
-static void handler() {
+static void handler(int sig) {
+    (void)sig;
     terminate = 1;
 }
 
@@ -39,11 +40,11 @@ static int packet_pong_ctor(struct port_info *pinfo, struct rte_mbuf *pkt) {
     return -1;
   }
   udp->dgram_cksum = 0;
+  ipv4->hdr_checksum = 0;
   ipv4->time_to_live = TTL;
   SWAP(udp->src_port, udp->dst_port, typeof(udp->src_port));
   SWAP(ipv4->src_addr, ipv4->dst_addr, typeof(ipv4->src_addr));
-  udp->dgram_cksum = rte_ipv4_udptcp_cksum(ipv4, udp);
-  ipv4->hdr_checksum = rte_ipv4_cksum(ipv4);
+  packet_ipv4_cksum(pkt, pinfo);;
   rte_ether_addr_copy(&eth->src_addr, &eth->dst_addr);
   rte_ether_addr_copy(&pinfo->pkt_config.eth.src_mac, &eth->src_addr);
   return 0;
