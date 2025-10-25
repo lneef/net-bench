@@ -44,7 +44,7 @@ static int packet_pong_ctor(struct port_info *pinfo, struct rte_mbuf *pkt) {
   ipv4->time_to_live = TTL;
   SWAP(udp->src_port, udp->dst_port, typeof(udp->src_port));
   SWAP(ipv4->src_addr, ipv4->dst_addr, typeof(ipv4->src_addr));
-  packet_ipv4_cksum(pkt, pinfo);;
+  packet_ipv4_cksum(pkt, pinfo);
   rte_ether_addr_copy(&eth->src_addr, &eth->dst_addr);
   rte_ether_addr_copy(&pinfo->pkt_config.eth.src_mac, &eth->src_addr);
   return 0;

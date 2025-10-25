@@ -123,7 +123,7 @@ static void print_stats(struct port_info *pinfo) {
   struct stat *stats = pinfo->statistics;
   struct submit_stat *sub_stats = pinfo->submit_statistics;
   printf("Reached PPS: %.2f\n", (double)(stats->received) / pinfo->rtime);
-  printf("Average latency: %.2f us\n", (double)(stats->time) / stats->received);
+  printf("Average latency: %.5f us\n", (double)(stats->time) / stats->received);
   printf("Submitted PPS: %.2f\n", (double)(sub_stats->subitted) / pinfo->rtime);
 }
 
@@ -226,7 +226,8 @@ int lcore_sender_single(void *port) {
 
     } while (rx_total < tx_nb && rte_get_timer_cycles() < cycles);
   }
-  pinfo->statistics->time /= (rte_get_timer_hz() / 1e3);;
+  // convert cycles to us
+  pinfo->statistics->time /= (rte_get_timer_hz() / 1e6);
   return 0;
 }
 
