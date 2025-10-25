@@ -38,11 +38,15 @@ struct pkt_content {
   struct timespec time;
 } __rte_packed __rte_aligned(alignof(struct timespec));
 
+struct pkt_content_rdtsc{
+    uint64_t time;
+} __rte_packed;
+
 static uint64_t sub(struct timespec *end, struct timespec *start) {
   uint64_t sec, nsec;
   if (end->tv_nsec < start->tv_nsec) {
     sec = end->tv_sec - start->tv_sec - 1;
-    nsec = 1e9 + end->tv_nsec - start->tv_sec;
+    nsec = (1e9 + end->tv_nsec) - start->tv_sec;
   } else {
     sec = end->tv_sec - start->tv_sec;
     nsec = end->tv_nsec - start->tv_nsec;
@@ -78,6 +82,35 @@ static void add_timestamp(struct port_info *info, struct rte_mbuf **pkts) {
     packet_ipv4_udp_cksum(pkts[i], info);
   }
 }
+
+static void handle_pong_rdtsc(struct port_info *info, struct rte_mbuf **pkts,
+                        uint16_t nb_rx) {
+  struct pkt_content_rdtsc pc, rc;
+  pc.time = rte_get_timer_cycles();
+  uint64_t burst_time = 0;
+  for (uint16_t i = 0; i < nb_rx; ++i) {
+    uint8_t *data = rte_pktmbuf_mtod_offset(pkts[i], uint8_t *, OFFSET);
+    if (packet_verify_cksum(pkts[i])) {
+      ++info->statistics->cksum_incorrect;
+      continue;
+    }
+    PUN(&rc, data, typeof(rc));
+    burst_time += pc.time - rc.time; 
+    ++info->statistics->received;
+  }
+  rte_pktmbuf_free_bulk(pkts, nb_rx);
+  info->statistics->time += (double)burst_time;
+}
+
+static void add_timestamp_rtdsc(struct port_info* info, struct rte_mbuf **pkts){
+    struct pkt_content_rdtsc pc = {.time = rte_get_timer_cycles() };
+    for(uint16_t i = 0; i < info->burst_size; ++i){
+        uint8_t *data = rte_pktmbuf_mtod_offset(pkts[i], uint8_t*, OFFSET);
+        PUN(data, &pc, typeof(pc));
+        packet_ipv4_udp_cksum(pkts[i], info);
+    }
+}
+
 
 static uint64_t time_between_bursts(uint64_t pps, uint16_t burst_size) {
   uint64_t interval = (rte_get_timer_hz() * burst_size) / pps;
@@ -177,7 +210,7 @@ int lcore_sender_single(void *port) {
       packet_pp_ctor_udp(pkts[i], &pinfo->pkt_config,
                          sizeof(struct pkt_content));
     }
-    add_timestamp(pinfo, pkts);
+    add_timestamp_rtdsc(pinfo, pkts);
     tx_nb = rte_eth_tx_burst(pinfo->port_id, pinfo->tx_queue, pkts,
                              pinfo->burst_size);
     pinfo->submit_statistics->subitted += tx_nb;
@@ -188,11 +221,12 @@ int lcore_sender_single(void *port) {
       rx_nb = rte_eth_rx_burst(pinfo->port_id, pinfo->rx_queue, rpkts,
                                pinfo->burst_size);
       if (rx_nb)
-        handle_pong(pinfo, rpkts, rx_nb);
+        handle_pong_rdtsc(pinfo, rpkts, rx_nb);
       rx_total += rx_nb;
 
     } while (rx_total < tx_nb && rte_get_timer_cycles() < cycles);
   }
+  pinfo->statistics->time /= (rte_get_timer_hz() / 1e3);;
   return 0;
 }
 

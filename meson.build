@@ -5,6 +5,7 @@ project('dpdk-perf', 'c',
 dpdk_dep = dependency('libdpdk', method: 'pkg-config', required: true)
 
 add_project_arguments('-D_POSIX_C_SOURCE=200809L', language: 'c')
+add_project_arguments('-Wpedantic', language: 'c')
 
 sources_ping = files('ping.c',
   'packet.c',
