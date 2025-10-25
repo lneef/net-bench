@@ -24,4 +24,3 @@ int launch_lcores(int (**lcore_fn)(void *), struct port_info *arg,
   }
   return 0;
 }
-

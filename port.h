@@ -53,6 +53,7 @@ struct packet_config {
   struct eth_config eth;
   struct ipv4_config ipv4;
   struct udp_config udp;
+  uint32_t frame_size;
 };
 
 struct port_info {
@@ -60,9 +61,9 @@ struct port_info {
   uint16_t burst_size;
   uint16_t rx_queue;
   uint16_t tx_queue;
+  uint16_t ctrl_queue;
   uint64_t pps;
   uint64_t rtime;
-  bool no_threading;
   struct stat *statistics;
   struct submit_stat *submit_statistics;
   struct packet_config pkt_config;

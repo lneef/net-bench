@@ -8,6 +8,7 @@
 #include "port.h"
 
 #define TTL 64
+#define HDR_SIZE (sizeof(struct rte_ether_hdr) + sizeof(struct rte_ipv4_hdr) + sizeof(struct rte_udp_hdr))
 
 int packet_eth_ctor(struct rte_mbuf* mbuf, struct rte_ether_hdr *eth,
                            struct eth_config *config, rte_be16_t ether_type); 
@@ -19,7 +20,7 @@ int packet_ipv4_ctor(struct rte_mbuf* mbuf, struct rte_ipv4_hdr *ipv4,
                             struct ipv4_config *config, uint16_t total_length);
 
 int packet_pp_ctor_udp(struct rte_mbuf *mbuf,
-                              struct packet_config *config, uint16_t payload_size);
+                              struct packet_config *config);
 
 void packet_arp_ctor(struct rte_mbuf *mbuf, struct port_info *info);
 

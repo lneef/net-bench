@@ -1,6 +1,7 @@
 #include <rte_ip.h>
 #include <rte_mbuf_core.h>
 #include <rte_udp.h>
+#include <stdint.h>
 
 #include "packet.h"
 #include "port.h"
@@ -10,6 +11,7 @@ int packet_eth_ctor(struct rte_mbuf *mbuf, struct rte_ether_hdr *eth,
   rte_ether_addr_copy(&config->src_mac, &eth->src_addr);
   rte_ether_addr_copy(&config->dst_mac, &eth->dst_addr);
   eth->ether_type = ether_type;
+  mbuf->l2_len = sizeof(struct rte_ether_hdr);
   mbuf->data_len += sizeof(struct rte_ether_hdr);
   mbuf->pkt_len += sizeof(struct rte_ether_hdr);
   return 0;
@@ -29,14 +31,15 @@ int packet_udp_ctor(struct rte_mbuf *mbuf, struct rte_udp_hdr *udp,
 
 int packet_ipv4_ctor(struct rte_mbuf *mbuf, struct rte_ipv4_hdr *ipv4,
                      struct ipv4_config *config, uint16_t total_length) {
-  ipv4->src_addr = rte_cpu_to_be_32(config->src_ip);
-  ipv4->dst_addr = rte_cpu_to_be_32(config->dst_ip);
+  ipv4->src_addr = config->src_ip;
+  ipv4->dst_addr = config->dst_ip;
   ipv4->version_ihl = RTE_IPV4_VHL_DEF;
   ipv4->time_to_live = TTL;
   ipv4->next_proto_id = IPPROTO_UDP;
   ipv4->total_length = rte_cpu_to_be_16(total_length);
   ipv4->packet_id = rte_cpu_to_be_16(config->packet_id);
   ipv4->fragment_offset = 0;
+  ipv4->type_of_service = 0;
   ipv4->hdr_checksum = 0;
   mbuf->l3_len = sizeof(struct rte_ipv4_hdr);
   mbuf->data_len += sizeof(struct rte_ipv4_hdr);
@@ -44,15 +47,17 @@ int packet_ipv4_ctor(struct rte_mbuf *mbuf, struct rte_ipv4_hdr *ipv4,
   return 0;
 }
 
-int packet_pp_ctor_udp(struct rte_mbuf *mbuf, struct packet_config *config,
-                       uint16_t payload_size) {
+int packet_pp_ctor_udp(struct rte_mbuf *mbuf, struct packet_config *config) {
   struct rte_ether_hdr *eth = rte_pktmbuf_mtod(mbuf, struct rte_ether_hdr *);
   struct rte_ipv4_hdr *ipv4 = (struct rte_ipv4_hdr *)(eth + 1);
   struct rte_udp_hdr *udp = (struct rte_udp_hdr *)(ipv4 + 1);
+  mbuf->data_len = 0;
+  mbuf->pkt_len = 0;
+  uint32_t payload = config->frame_size - HDR_SIZE;
   packet_udp_ctor(mbuf, udp, &config->udp,
-                  payload_size += sizeof(struct rte_udp_hdr));
+                  payload += sizeof(struct rte_udp_hdr));
   packet_ipv4_ctor(mbuf, ipv4, &config->ipv4,
-                   payload_size += sizeof(struct rte_ipv4_hdr));
+                   payload += sizeof(struct rte_ipv4_hdr));
   packet_eth_ctor(mbuf, eth, &config->eth,
                   rte_cpu_to_be_16(RTE_ETHER_TYPE_IPV4));
   return 0;
@@ -62,6 +67,8 @@ void packet_arp_ctor(struct rte_mbuf *mbuf, struct port_info *info) {
   struct rte_ether_hdr *eth_hdr =
       rte_pktmbuf_mtod(mbuf, struct rte_ether_hdr *);
   struct rte_arp_hdr *arp_hdr = (struct rte_arp_hdr *)(eth_hdr + 1);
+  mbuf->pkt_len = 0;
+  mbuf->data_len = 0;
   packet_eth_ctor(mbuf, eth_hdr, &info->pkt_config.eth,
                   rte_cpu_to_be_16(RTE_ETHER_TYPE_ARP));
 
@@ -94,7 +101,8 @@ void packet_udp_cksum(struct rte_mbuf *mbuf, struct port_info *info) {
   if (!info->pkt_config.udp.chcksum_offload) {
     udp->dgram_cksum = rte_ipv4_udptcp_cksum(ipv4, udp);
   } else {
-    mbuf->ol_flags |= RTE_MBUF_F_TX_UDP_CKSUM | RTE_MBUF_F_TX_IPV4;
+    mbuf->ol_flags |=
+        RTE_MBUF_F_TX_UDP_CKSUM | RTE_MBUF_F_TX_IP_CKSUM | RTE_MBUF_F_TX_IPV4;
     udp->dgram_cksum = rte_ipv4_phdr_cksum(ipv4, mbuf->ol_flags);
   }
 }

@@ -37,5 +37,5 @@
 typedef int (*packet_ipv4)(struct port_info *, struct rte_mbuf *);
 
 int launch_lcores(int (**lcore_fn)(void *), struct port_info *arg,
-                         uint16_t cores); 
+                         uint16_t cores);
 #endif

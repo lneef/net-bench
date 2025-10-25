@@ -1,3 +1,4 @@
+#include <rte_ether.h>
 #include <stdlib.h>
 
 #include "port.h"
@@ -12,7 +13,6 @@ static int port_init_cmdline(struct port_info *info, int argc, char **argv) {
       {"pps", required_argument, 0, 0},
       {"rt", required_argument, 0, 0},
       {"bs", required_argument, 0, 0},
-      {"st", no_argument, 0, 0},
       {0, 0, 0, 0}};
   while ((opt = getopt_long(argc, argv, "", long_options, &option_index)) !=
          -1) {
@@ -40,8 +40,6 @@ static int port_init_cmdline(struct port_info *info, int argc, char **argv) {
     case 6:
       info->burst_size = atoi(optarg);
       break;
-    case 7:
-      info->no_threading = 1; 
     default:
       break;
     }
@@ -122,6 +120,7 @@ int port_info_ctor(struct port_info **info, enum role role, int argc,
     return -1;
   (*info)->pps = UINT64_MAX;
   (*info)->burst_size = BURST_SIZE;
+  (*info)->pkt_config.frame_size = RTE_ETHER_MIN_LEN - RTE_ETHER_CRC_LEN;
   (*info)->statistics = (struct stat *)rte_calloc(NULL, 1, sizeof(struct stat),
                                                   RTE_CACHE_LINE_MIN_SIZE);
   for (int i = 0; i < RTE_ETHER_ADDR_LEN; ++i)
