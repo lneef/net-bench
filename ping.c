@@ -134,19 +134,10 @@ int main(int argc, char *argv[]) {
     return -1;
   if (port_info_ctor(&pinfo, ROLE_PING, argc - dpdk_argc, argv + dpdk_argc) < 0)
     return -1;
-  if (resolve_arp(pinfo) < 0) {
-    ret = -1;
-    goto cleanup;
-  }
-  int (*lcore_fun[])(void *) = {lcore_ping};
-  if (launch_lcores(lcore_fun, pinfo, 1) < 0) {
-    ret = -1;
-    goto cleanup;
-  }
+  lcore_ping(pinfo);
 
   print_stats(pinfo);
   ret = 0;
-cleanup:
   port_info_dtor(pinfo);
   return ret;
 }

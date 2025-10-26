@@ -13,6 +13,7 @@ static int port_init_cmdline(struct port_info *info, int argc, char **argv) {
       {"pps", required_argument, 0, 0},
       {"rt", required_argument, 0, 0},
       {"bs", required_argument, 0, 0},
+      {"dmac", required_argument, 0, 0},
       {0, 0, 0, 0}};
   while ((opt = getopt_long(argc, argv, "", long_options, &option_index)) !=
          -1) {
@@ -39,6 +40,9 @@ static int port_init_cmdline(struct port_info *info, int argc, char **argv) {
       break;
     case 6:
       info->burst_size = atoi(optarg);
+      break;
+    case 7:
+      rte_ether_unformat_addr(optarg, &info->pkt_config.eth.dst_mac);
       break;
     default:
       break;

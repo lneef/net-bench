@@ -60,6 +60,7 @@ int packet_pp_ctor_udp(struct rte_mbuf *mbuf, struct packet_config *config) {
                    payload += sizeof(struct rte_ipv4_hdr));
   packet_eth_ctor(mbuf, eth, &config->eth,
                   rte_cpu_to_be_16(RTE_ETHER_TYPE_IPV4));
+  mbuf->nb_segs = 1;
   return 0;
 }
 
