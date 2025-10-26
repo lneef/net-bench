@@ -37,7 +37,7 @@ int packet_ipv4_ctor(struct rte_mbuf *mbuf, struct rte_ipv4_hdr *ipv4,
   ipv4->time_to_live = TTL;
   ipv4->next_proto_id = IPPROTO_UDP;
   ipv4->total_length = rte_cpu_to_be_16(total_length);
-  ipv4->packet_id = rte_cpu_to_be_16(config->packet_id);
+  ipv4->packet_id = 0;
   ipv4->fragment_offset = 0;
   ipv4->type_of_service = 0;
   ipv4->hdr_checksum = 0;

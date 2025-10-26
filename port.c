@@ -1,7 +1,14 @@
 #include <rte_ether.h>
+#include <rte_mbuf_core.h>
 #include <stdlib.h>
 
 #include "port.h"
+
+static struct rte_eth_conf port_conf = {
+    .rxmode = {.max_lro_pkt_size = RTE_ETHER_MAX_LEN,
+                .offloads = RTE_ETH_RX_OFFLOAD_CHECKSUM},
+    .txmode = {.mq_mode = RTE_ETH_MQ_TX_NONE}
+};
 
 static int port_init_cmdline(struct port_info *info, int argc, char **argv) {
   int opt, option_index;
@@ -54,7 +61,6 @@ static int port_init_cmdline(struct port_info *info, int argc, char **argv) {
 }
 
 static int port_init(struct port_info *pinfo) {
-  struct rte_eth_conf port_conf;
   const uint16_t rx_rings = 1, tx_rings = 1;
   uint16_t nb_rxd = RX_RING_SIZE;
   uint16_t nb_txd = TX_RING_SIZE;
@@ -83,7 +89,6 @@ static int port_init(struct port_info *pinfo) {
   if (dev_info.tx_offload_capa & RTE_ETH_RX_OFFLOAD_UDP_CKSUM)
     port_conf.txmode.offloads |= RTE_ETH_RX_OFFLOAD_UDP_CKSUM;
 
-  pinfo->port_id = port;
   pinfo->pkt_config.ipv4.chcksum_offload =
       dev_info.rx_offload_capa & RTE_ETH_RX_OFFLOAD_IPV4_CKSUM;
   pinfo->pkt_config.udp.chcksum_offload =
@@ -131,11 +136,11 @@ int port_info_ctor(struct port_info **info, enum role role, int argc,
     (*info)->pkt_config.eth.dst_mac.addr_bytes[i] = 0xff;
   if (port_init_cmdline(*info, argc, argv))
     return -1;
-
+  (*info)->port_id = 0;
   if (role == ROLE_PING) {
     (*info)->mbuf_pool =
         rte_pktmbuf_pool_create("MBUF_POOL", NUM_MBUFS, MEMPOOL_CACHE_SIZE, 0,
-                                ETHER_SIZE, rte_socket_id());
+                                RTE_MBUF_DEFAULT_BUF_SIZE, rte_socket_id());
     if ((*info)->mbuf_pool == NULL)
       return -1;
     (*info)->ctrl_pool = rte_pktmbuf_pool_create(

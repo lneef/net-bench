@@ -23,7 +23,6 @@
 #include <stdbool.h>
 #include <stdint.h>
 
-#include "arp.h"
 #include "packet.h"
 #include "port.h"
 #include "statistics.h"
@@ -98,7 +97,7 @@ int lcore_ping(void *port) {
   uint64_t cycles = rte_get_timer_cycles();
   uint64_t end = pinfo->rtime * rte_get_timer_hz() + cycles;
   for (; rte_get_timer_cycles() < end;) {
-    if (rte_pktmbuf_alloc_bulk(pinfo->mbuf_pool, pkts, tx_nb)) {
+    if (rte_pktmbuf_alloc_bulk(pinfo->mbuf_pool, pkts, pinfo->burst_size)) {
       rte_log(RTE_LOG_ERR, RTE_LOGTYPE_USER1,
               "Failed to allocated burst of size %u\n", tx_nb);
     }
@@ -110,7 +109,7 @@ int lcore_ping(void *port) {
                              pinfo->burst_size);
     pinfo->submit_statistics->subitted += tx_nb;
     cycles += wait_cycles;
-    uint16_t rx_nb, rx_total = 0;
+    uint16_t rx_nb = 0, rx_total = 0;
     // wait until time slice expires (pps)
     do {
       rx_nb = rte_eth_rx_burst(pinfo->port_id, pinfo->rx_queue, rpkts,
@@ -119,7 +118,9 @@ int lcore_ping(void *port) {
         handle_pong_rdtsc(pinfo, rpkts, rx_nb);
       rx_total += rx_nb;
 
-    } while (rx_total < tx_nb && rte_get_timer_cycles() < cycles);
+    } while (rx_total < tx_nb);
+    if(tx_nb < pinfo->burst_size)
+        rte_pktmbuf_free_bulk(&pkts[tx_nb], pinfo->burst_size - tx_nb);
   }
   // convert cycles to us
   pinfo->statistics->time /= (rte_get_timer_hz() / 1e6);
@@ -129,7 +130,6 @@ int lcore_ping(void *port) {
 int main(int argc, char *argv[]) {
   struct port_info *pinfo;
   int dpdk_argc = rte_eal_init(argc, argv);
-  int ret;
   if (dpdk_argc < 0)
     return -1;
   if (port_info_ctor(&pinfo, ROLE_PING, argc - dpdk_argc, argv + dpdk_argc) < 0)
@@ -137,7 +137,7 @@ int main(int argc, char *argv[]) {
   lcore_ping(pinfo);
 
   print_stats(pinfo);
-  ret = 0;
   port_info_dtor(pinfo);
-  return ret;
+  rte_eal_cleanup();
+  return 0;
 }
