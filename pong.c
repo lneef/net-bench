@@ -54,8 +54,6 @@ static int handle_packet(struct port_info *info, struct rte_mbuf *pkt,
                          packet_ipv4 ipv4_handler) {
   struct rte_ether_hdr *eth = rte_pktmbuf_mtod(pkt, struct rte_ether_hdr *);
   switch (rte_be_to_cpu_16(eth->ether_type)) {
-  case RTE_ETHER_TYPE_ARP:
-    return process_arp(pkt, info);
   case RTE_ETHER_TYPE_IPV4:
     return ipv4_handler(info, pkt);
   default:

@@ -24,8 +24,8 @@ int packet_udp_ctor(struct rte_mbuf *mbuf, struct rte_udp_hdr *udp,
   udp->dgram_len = rte_cpu_to_be_16(dgram_len);
   udp->dgram_cksum = 0;
   mbuf->l4_len = sizeof(struct rte_udp_hdr);
-  mbuf->data_len += sizeof(struct rte_udp_hdr) + dgram_len;
-  mbuf->pkt_len += sizeof(struct rte_udp_hdr) + dgram_len;
+  mbuf->data_len += dgram_len;
+  mbuf->pkt_len += dgram_len;
   return 0;
 }
 

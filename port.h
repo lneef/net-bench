@@ -62,7 +62,7 @@ struct port_info {
   uint16_t rx_queue;
   uint16_t tx_queue;
   uint16_t ctrl_queue;
-  uint64_t pps;
+  uint64_t bps;
   uint64_t rtime;
   struct stat *statistics;
   struct submit_stat *submit_statistics;

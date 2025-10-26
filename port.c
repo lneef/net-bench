@@ -17,7 +17,7 @@ static int port_init_cmdline(struct port_info *info, int argc, char **argv) {
       {"sport", required_argument, 0, 0},
       {"dip", required_argument, 0, 0},
       {"sip", required_argument, 0, 0},
-      {"pps", required_argument, 0, 0},
+      {"bps", required_argument, 0, 0},
       {"rt", required_argument, 0, 0},
       {"bs", required_argument, 0, 0},
       {"dmac", required_argument, 0, 0},
@@ -40,7 +40,7 @@ static int port_init_cmdline(struct port_info *info, int argc, char **argv) {
       info->pkt_config.ipv4.src_ip = inet_addr(optarg);
       break;
     case 4:
-      info->pps = atol(optarg);
+      info->bps = atol(optarg);
       break;
     case 5:
       info->rtime = atol(optarg);
@@ -55,7 +55,6 @@ static int port_init_cmdline(struct port_info *info, int argc, char **argv) {
       break;
     }
     info->burst_size = RTE_MIN(info->burst_size, BURST_SIZE);
-    info->burst_size = RTE_MIN(info->burst_size, info->pps);;
   }
   return 0;
 }
