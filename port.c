@@ -126,7 +126,7 @@ int port_info_ctor(struct port_info **info, enum role role, int argc,
                                          RTE_CACHE_LINE_MIN_SIZE);
   if (!*info)
     return -1;
-  (*info)->pps = UINT64_MAX;
+  (*info)->bps = 1;
   (*info)->burst_size = BURST_SIZE;
   (*info)->pkt_config.frame_size = RTE_ETHER_MIN_LEN - RTE_ETHER_CRC_LEN;
   (*info)->statistics = (struct stat *)rte_calloc(NULL, 1, sizeof(struct stat),
