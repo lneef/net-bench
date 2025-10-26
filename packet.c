@@ -1,4 +1,6 @@
+#include <rte_common.h>
 #include <rte_ip.h>
+#include <rte_mbuf.h>
 #include <rte_mbuf_core.h>
 #include <rte_udp.h>
 #include <stdint.h>
@@ -121,4 +123,14 @@ int packet_verify_cksum(struct rte_mbuf *mbuf) {
   ipv4->hdr_checksum = 0;
   int udp_cksum = rte_ipv4_udptcp_cksum_verify(ipv4, udp);
   return ipv4_cksum || (udp->dgram_cksum != 0 && udp_cksum);
+}
+
+void packet_mempool_ctor(struct rte_mempool *mp, void *opaque, void *obj, unsigned int obj_idx __rte_unused){
+    struct rte_mbuf *mbuf = (struct rte_mbuf *)obj;
+    struct port_info *info = (struct port_info *)opaque;
+    packet_pp_ctor_udp(mbuf, &info->pkt_config);
+
+    mbuf->port = info->port_id;
+    mbuf->pool = mp;
+    mbuf->next = NULL;
 }

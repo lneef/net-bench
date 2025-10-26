@@ -23,17 +23,16 @@
 #define RX_RING_SIZE 1024
 #define TX_RING_SIZE 1024
 #define MEMPOOL_CACHE_SIZE 256
-#define NUM_MBUFS 1023
+#define NUM_MBUFS 8191
+#define NUM_SENDBUF (2 * TX_RING_SIZE -  1)
 
 #define ETHER_SIZE (RTE_ETHER_MAX_LEN + RTE_PKTMBUF_HEADROOM)
 #define JUMBO_SIZE (RTE_ETHER_MAX_JUMBO_FRAME_LEN + RTE_PKTMBUF_HEADROOM)
-
-enum role { ROLE_PING, ROLE_PONG };
+enum role{PING, PONG};
 
 struct eth_config {
   struct rte_ether_addr src_mac;
   struct rte_ether_addr dst_mac;
-  bool arp_resolved;
 };
 
 struct ipv4_config {
@@ -68,8 +67,8 @@ struct port_info {
   struct submit_stat *submit_statistics;
   struct packet_config pkt_config;
   struct rte_mempool *mbuf_pool;
-  struct rte_mempool *recv_pool;
   struct rte_mempool *ctrl_pool;
+  struct rte_mempool *send_pool;
 } __rte_cache_aligned;
 
 int port_info_ctor(struct port_info **info, enum role role, int argc,

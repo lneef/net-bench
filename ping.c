@@ -18,10 +18,12 @@
 
 #include <arpa/inet.h>
 #include <rte_memcpy.h>
+#include <rte_mempool.h>
 #include <rte_udp.h>
 #include <stdalign.h>
 #include <stdbool.h>
 #include <stdint.h>
+#include <stdio.h>
 
 #include "packet.h"
 #include "port.h"
@@ -35,8 +37,8 @@ struct pkt_content_rdtsc {
 static void handle_pong_rdtsc(struct port_info *info, struct rte_mbuf **pkts,
                               uint16_t nb_rx) {
   struct pkt_content_rdtsc pc, rc;
+  uint64_t elapsed = 0;
   pc.time = rte_get_timer_cycles();
-  uint64_t burst_time = 0;
   for (uint16_t i = 0; i < nb_rx; ++i) {
     uint8_t *data = rte_pktmbuf_mtod_offset(pkts[i], uint8_t *, HDR_SIZE);
     if (packet_verify_cksum(pkts[i])) {
@@ -44,11 +46,12 @@ static void handle_pong_rdtsc(struct port_info *info, struct rte_mbuf **pkts,
       continue;
     }
     PUN(&rc, data, typeof(rc));
-    burst_time += pc.time - rc.time;
+    elapsed = pc.time - rc.time;
+    info->statistics->time += elapsed;
+    info->statistics->min = RTE_MIN(info->statistics->min, elapsed);
     ++info->statistics->received;
   }
   rte_pktmbuf_free_bulk(pkts, nb_rx);
-  info->statistics->time += (double)burst_time;
 }
 
 static void add_timestamp_rtdsc(struct port_info *info,
@@ -71,8 +74,11 @@ static uint64_t time_between_bursts(uint64_t bps) {
 static void print_stats(struct port_info *pinfo) {
   struct stat *stats = pinfo->statistics;
   struct submit_stat *sub_stats = pinfo->submit_statistics;
+  double avg_latency_us = (double)stats->time / (rte_get_timer_hz() / 1e6) / stats->received;
+  double min_latency_us = (double) stats->min / (rte_get_timer_hz() / 1e6) / stats->received; 
+  printf("-----Statistics-----\n");
   printf("Reached PPS: %.2f\n", (double)(stats->received) / pinfo->rtime);
-  printf("Average latency: %.5f us\n", (double)(stats->time) / stats->received);
+  printf("Average latency: %.2f us -- Min latency: %.2f\n", avg_latency_us, min_latency_us);
   printf("Submitted PPS: %.2f\n", (double)(sub_stats->subitted) / pinfo->rtime);
 }
 
@@ -101,16 +107,16 @@ int lcore_ping(void *port) {
       rte_log(RTE_LOG_ERR, RTE_LOGTYPE_USER1,
               "Failed to allocated burst of size %u\n", tx_nb);
     }
-    for (int i = 0; i < tx_nb; ++i) {
-      packet_pp_ctor_udp(pkts[i], &pinfo->pkt_config);
+    for(uint16_t i = 0; i < tx_nb; ++i) {
+        packet_pp_ctor_udp(pkts[i], &pinfo->pkt_config);
     }
     add_timestamp_rtdsc(pinfo, pkts);
     tx_nb = rte_eth_tx_burst(pinfo->port_id, pinfo->tx_queue, pkts,
                              pinfo->burst_size);
     pinfo->submit_statistics->subitted += tx_nb;
     cycles += wait_cycles;
-    uint16_t rx_nb, rx_total = 0;
-    // wait until time slice expires (pps)
+    uint16_t rx_nb = 0, rx_total = 0;
+    // wait until time slice expires (bps)
     do {
       rx_nb = rte_eth_rx_burst(pinfo->port_id, pinfo->rx_queue, rpkts,
                                pinfo->burst_size);
@@ -118,27 +124,20 @@ int lcore_ping(void *port) {
         handle_pong_rdtsc(pinfo, rpkts, rx_nb);
       rx_total += rx_nb;
 
-    } while (rx_total < tx_nb);
-    while (rte_get_timer_cycles() < cycles)
-      rte_pause();
+    } while (rx_total < tx_nb && rte_get_timer_cycles() < cycles);
   }
-  // convert cycles to us
-  pinfo->statistics->time /= (rte_get_timer_hz() / 1e6);
   return 0;
 }
 
 int main(int argc, char *argv[]) {
   struct port_info *pinfo;
   int dpdk_argc = rte_eal_init(argc, argv);
-  int ret;
   if (dpdk_argc < 0)
     return -1;
-  if (port_info_ctor(&pinfo, ROLE_PING, argc - dpdk_argc, argv + dpdk_argc) < 0)
+  if (port_info_ctor(&pinfo, PING, argc - dpdk_argc, argv + dpdk_argc) < 0)
     return -1;
   lcore_ping(pinfo);
-
   print_stats(pinfo);
-  ret = 0;
   port_info_dtor(pinfo);
-  return ret;
+  return 0;
 }

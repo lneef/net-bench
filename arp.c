@@ -43,7 +43,6 @@ int process_arp(struct rte_mbuf *mbuf, struct port_info *info) {
     rte_log(RTE_LOG_INFO, RTE_LOGTYPE_USER1, "ARP from resolved\n");
     rte_ether_addr_copy(&arp_hdr->arp_data.arp_sha,
                         &info->pkt_config.eth.dst_mac);
-    info->pkt_config.eth.arp_resolved = true;
     rte_pktmbuf_free(mbuf);
     return 0;
   }

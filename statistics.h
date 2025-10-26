@@ -6,7 +6,8 @@
 
 struct stat {
   uint64_t received;
-  double time;
+  uint64_t time;
+  uint64_t min;
   uint64_t cksum_incorrect;
 } __rte_cache_aligned;
 

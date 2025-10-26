@@ -1,14 +1,13 @@
 #include <rte_ether.h>
+#include <rte_lcore.h>
 #include <rte_mbuf_core.h>
 #include <stdlib.h>
 
 #include "port.h"
 
 static struct rte_eth_conf port_conf = {
-    .rxmode = {.max_lro_pkt_size = RTE_ETHER_MAX_LEN,
-                .offloads = RTE_ETH_RX_OFFLOAD_CHECKSUM},
-    .txmode = {.mq_mode = RTE_ETH_MQ_TX_NONE}
-};
+    .rxmode = {.max_lro_pkt_size = RTE_ETHER_MAX_LEN},
+    .txmode = {.mq_mode = RTE_ETH_MQ_TX_NONE}};
 
 static int port_init_cmdline(struct port_info *info, int argc, char **argv) {
   int opt, option_index;
@@ -102,7 +101,7 @@ static int port_init(struct port_info *pinfo) {
     return retval;
   rxconf = dev_info.default_rxconf;
   retval = rte_eth_rx_queue_setup(port, q, nb_rxd, rte_eth_dev_socket_id(port),
-                                  &rxconf, pinfo->recv_pool);
+                                  &rxconf, pinfo->mbuf_pool);
   if (retval < 0)
     return retval;
   pinfo->rx_queue = q;
@@ -136,20 +135,22 @@ int port_info_ctor(struct port_info **info, enum role role, int argc,
   if (port_init_cmdline(*info, argc, argv))
     return -1;
   (*info)->port_id = 0;
-  if (role == ROLE_PING) {
-    (*info)->mbuf_pool =
-        rte_pktmbuf_pool_create("MBUF_POOL", NUM_MBUFS, MEMPOOL_CACHE_SIZE, 0,
-                                RTE_MBUF_DEFAULT_BUF_SIZE, rte_socket_id());
-    if ((*info)->mbuf_pool == NULL)
-      return -1;
+  (*info)->mbuf_pool =
+      rte_pktmbuf_pool_create("MBUF_POOL", NUM_MBUFS, MEMPOOL_CACHE_SIZE, 0,
+                              RTE_MBUF_DEFAULT_BUF_SIZE, rte_socket_id());
+  if ((*info)->mbuf_pool == NULL)
+    return -1;
+  if (role == PING) {
     (*info)->ctrl_pool = rte_pktmbuf_pool_create(
         "CTRL_POOL", 16, 0, 0, RTE_MBUF_DEFAULT_BUF_SIZE, rte_socket_id());
     if ((*info)->ctrl_pool == NULL)
       return -1;
+    (*info)->send_pool =
+        rte_pktmbuf_pool_create("SEND_POOL", NUM_SENDBUF, MEMPOOL_CACHE_SIZE, 0,
+                                RTE_MBUF_DEFAULT_BUF_SIZE, rte_socket_id());
+    if ((*info)->send_pool == NULL)
+      return -1;
   }
-  (*info)->recv_pool =
-      rte_pktmbuf_pool_create("RECV_POOL", NUM_MBUFS, MEMPOOL_CACHE_SIZE, 0,
-                              RTE_MBUF_DEFAULT_BUF_SIZE, rte_socket_id());
   return port_init(*info);
 }
 
@@ -160,8 +161,8 @@ int port_info_dtor(struct port_info *info) {
     rte_mempool_free(info->mbuf_pool);
   if (info->ctrl_pool)
     rte_mempool_free(info->ctrl_pool);
-  if (info->recv_pool)
-    rte_mempool_free(info->recv_pool);
+  if (info->send_pool)
+    rte_mempool_free(info->send_pool);
   rte_free(info->statistics);
   rte_free(info->submit_statistics);
   rte_free(info);

@@ -18,7 +18,6 @@
 #include <sys/socket.h>
 #include <signal.h>
 
-#include "arp.h"
 #include "port.h"
 #include "util.h"
 #include "packet.h"
@@ -50,12 +49,11 @@ static int packet_pong_ctor(struct port_info *pinfo, struct rte_mbuf *pkt) {
   return 0;
 }
 
-static int handle_packet(struct port_info *info, struct rte_mbuf *pkt,
-                         packet_ipv4 ipv4_handler) {
+static int handle_packet(struct port_info *info, struct rte_mbuf *pkt) {
   struct rte_ether_hdr *eth = rte_pktmbuf_mtod(pkt, struct rte_ether_hdr *);
   switch (rte_be_to_cpu_16(eth->ether_type)) {
   case RTE_ETHER_TYPE_IPV4:
-    return ipv4_handler(info, pkt);
+    return packet_pong_ctor(info, pkt);
   default:
     rte_pktmbuf_free(pkt);
   }
@@ -74,7 +72,7 @@ static int lcore_pong(void *port) {
     int j = 0, i = nb_rm + nb_rx - 1;
     for (; i >= 0; --i, ++j) {
       pkts_out[j] = pkts[i];
-      ret = handle_packet(info, pkts_out[j], packet_pong_ctor);
+      ret = handle_packet(info, pkts_out[j]);
       if (unlikely(ret < 0))
         --j;
     }
@@ -93,7 +91,7 @@ int main(int argc, char *argv[]) {
   int dpdk_argc = rte_eal_init(argc, argv);
   if (dpdk_argc < 0)
     return -1;
-  if (port_info_ctor(&pinfo, ROLE_PONG, argc - dpdk_argc, argv + dpdk_argc))
+  if (port_info_ctor(&pinfo, PONG, argc - dpdk_argc, argv + dpdk_argc))
     return -1;
   lcore_pong(pinfo);
   port_info_dtor(pinfo);
