@@ -157,13 +157,13 @@ int port_info_ctor(struct port_info **info, enum role role, int argc,
         "CTRL_POOL", 16, 0, 0, RTE_MBUF_DEFAULT_BUF_SIZE, rte_socket_id());
     if ((*info)->ctrl_pool == NULL)
       return -1;
-  }
-  (*info)->send_pool =
-      rte_pktmbuf_pool_create("SEND_POOL", NUM_SENDBUF, MEMPOOL_CACHE_SIZE, 0,
-                              RTE_MBUF_DEFAULT_BUF_SIZE, rte_socket_id());
-  if ((*info)->send_pool == NULL)
-    return -1;
 
+    (*info)->send_pool =
+        rte_pktmbuf_pool_create("SEND_POOL", NUM_SENDBUF, MEMPOOL_CACHE_SIZE, 0,
+                                RTE_MBUF_DEFAULT_BUF_SIZE, rte_socket_id());
+    if ((*info)->send_pool == NULL)
+      return -1;
+  }
   return port_init(*info);
 }
 
