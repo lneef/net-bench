@@ -19,8 +19,8 @@
 #include <signal.h>
 
 #include "port.h"
-#include "util.h"
 #include "packet.h"
+#include "statistics.h"
 
 static int terminate = 0;
 
@@ -29,55 +29,53 @@ static void handler(int sig) {
     terminate = 1;
 }
 
-
-static int packet_pong_ctor(struct port_info *pinfo, struct rte_mbuf *pkt) {
-  struct rte_ether_hdr *eth = rte_pktmbuf_mtod(pkt, struct rte_ether_hdr *);
-  struct rte_ipv4_hdr *ipv4 = (struct rte_ipv4_hdr *)(eth + 1);
-  struct rte_udp_hdr *udp = (struct rte_udp_hdr *)(ipv4 + 1);
-  if (packet_verify_cksum(pkt)) {
-    rte_log(RTE_LOG_INFO, RTE_LOGTYPE_USER1, "invalid udp checksum\n");
-    return -1;
-  }
-  udp->dgram_cksum = 0;
-  ipv4->hdr_checksum = 0;
-  ipv4->time_to_live = TTL;
-  SWAP(udp->src_port, udp->dst_port, typeof(udp->src_port));
-  SWAP(ipv4->src_addr, ipv4->dst_addr, typeof(ipv4->src_addr));
-  packet_ipv4_cksum(pkt, pinfo);
-  rte_ether_addr_copy(&eth->src_addr, &eth->dst_addr);
-  rte_ether_addr_copy(&pinfo->pkt_config.eth.src_mac, &eth->src_addr);
-  return 0;
+static int packet_mempool_alloc(struct rte_mempool *mp, struct rte_mbuf **pkts, uint16_t nb){
+    return rte_mempool_get_bulk(mp, (void**)pkts, nb);
 }
 
-static int handle_packet(struct port_info *info, struct rte_mbuf *pkt) {
+static void packet_copy_payload(struct rte_mbuf *src, struct rte_mbuf *dst) {
+    uint8_t* data = rte_pktmbuf_mtod_offset(src, uint8_t*, HDR_SIZE);
+    uint8_t* dst_data = rte_pktmbuf_mtod_offset(dst, uint8_t*, HDR_SIZE);
+    rte_memcpy(dst_data, data, sizeof(struct pkt_content_rdtsc));
+}
+
+static int handle_packet(struct port_info* info, struct rte_mbuf *pkt) {
   struct rte_ether_hdr *eth = rte_pktmbuf_mtod(pkt, struct rte_ether_hdr *);
   switch (rte_be_to_cpu_16(eth->ether_type)) {
   case RTE_ETHER_TYPE_IPV4:
-    return packet_pong_ctor(info, pkt);
+    return packet_verify_cksum(info, pkt);
   default:
-    rte_pktmbuf_free(pkt);
+    break;
   }
   return -1;
 }
 
 static int lcore_pong(void *port) {
-  int ret;
   struct port_info *info = (struct port_info *)port;
   struct rte_mbuf *pkts[BURST_SIZE];
   struct rte_mbuf *pkts_out[BURST_SIZE];
-  uint16_t nb_rx, nb_tx = 0, nb_rm = 0;
+  uint16_t nb_rx, nb_tx = 0;
+  rte_mempool_obj_iter(info->send_pool, packet_mempool_ctor, info);
   for (;!terminate;) {
     nb_rx =
-        rte_eth_rx_burst(info->port_id, info->rx_queue, pkts + nb_rm, info->burst_size - nb_rm);
-    int j = 0, i = nb_rm + nb_rx - 1;
-    for (; i >= 0; --i, ++j) {
-      pkts_out[j] = pkts[i];
-      ret = handle_packet(info, pkts_out[j]);
-      if (unlikely(ret < 0))
-        --j;
+        rte_eth_rx_burst(info->port_id, info->rx_queue, pkts, info->burst_size);
+    if(nb_rx == 0)
+        continue;
+    if(likely(packet_mempool_alloc(info->send_pool, pkts_out, nb_rx))){
+        // drop packets
+        rte_pktmbuf_free_bulk(pkts, nb_rx);
+        continue;
     }
+    int j = 0;
+    for (int i = 0; i < nb_rx; ++i) {
+        if(unlikely(handle_packet(info, pkts[i])))
+            continue;
+        packet_copy_payload(pkts[i], pkts_out[j++]);
+    }
+    rte_pktmbuf_free_bulk(pkts, nb_rx);
     nb_tx = rte_eth_tx_burst(info->port_id, info->tx_queue, pkts_out, j);
-    nb_rm = j - nb_tx;
+    rte_pktmbuf_free_bulk(pkts_out + nb_tx, j - nb_tx);
+
   }
   return 0;
 }

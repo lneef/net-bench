@@ -40,12 +40,14 @@ struct ipv4_config {
   uint32_t dst_ip;
   uint16_t packet_id;
   bool chcksum_offload;
+  bool rx_chcksum_offload;
 };
 
 struct udp_config {
   uint16_t src_port;
   uint16_t dst_port;
   bool chcksum_offload;
+  bool rx_chcksum_offload;
 };
 
 struct packet_config {

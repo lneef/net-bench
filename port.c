@@ -1,3 +1,4 @@
+#include <rte_ethdev.h>
 #include <rte_ether.h>
 #include <rte_lcore.h>
 #include <rte_mbuf_core.h>
@@ -87,9 +88,19 @@ static int port_init(struct port_info *pinfo) {
   if (dev_info.tx_offload_capa & RTE_ETH_RX_OFFLOAD_UDP_CKSUM)
     port_conf.txmode.offloads |= RTE_ETH_RX_OFFLOAD_UDP_CKSUM;
 
+  if(dev_info.rx_offload_capa & RTE_ETH_RX_OFFLOAD_UDP_CKSUM)
+    port_conf.rxmode.offloads |= RTE_ETH_RX_OFFLOAD_UDP_CKSUM;
+  if(dev_info.rx_offload_capa & RTE_ETH_RX_OFFLOAD_IPV4_CKSUM)
+      port_conf.rxmode.offloads |= RTE_ETH_RX_OFFLOAD_IPV4_CKSUM;
+
   pinfo->pkt_config.ipv4.chcksum_offload =
       dev_info.rx_offload_capa & RTE_ETH_RX_OFFLOAD_IPV4_CKSUM;
   pinfo->pkt_config.udp.chcksum_offload =
+      dev_info.rx_offload_capa & RTE_ETH_RX_OFFLOAD_UDP_CKSUM;
+
+  pinfo->pkt_config.ipv4.rx_chcksum_offload = 
+      dev_info.rx_offload_capa & RTE_ETH_RX_OFFLOAD_IPV4_CKSUM;
+  pinfo->pkt_config.udp.rx_chcksum_offload = 
       dev_info.rx_offload_capa & RTE_ETH_RX_OFFLOAD_UDP_CKSUM;
 
   retval = rte_eth_dev_configure(port, rx_rings, tx_rings, &port_conf);

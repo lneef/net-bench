@@ -30,10 +30,6 @@
 #include "statistics.h"
 #include "util.h"
 
-struct pkt_content_rdtsc {
-  uint64_t time;
-} __rte_packed;
-
 static uint16_t handle_pong_rdtsc(struct port_info *info, struct rte_mbuf **pkts,
                               uint16_t nb_rx) {
   struct pkt_content_rdtsc pc, rc;
@@ -45,7 +41,7 @@ static uint16_t handle_pong_rdtsc(struct port_info *info, struct rte_mbuf **pkts
     if(packet_verify_ipv4(pkts[i]))
         continue;
     ++rx_count;
-    if (packet_verify_cksum(pkts[i])) {
+    if (packet_verify_cksum(info, pkts[i])) {
       ++info->statistics->cksum_incorrect;
       continue;
     }

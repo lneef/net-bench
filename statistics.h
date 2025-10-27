@@ -15,4 +15,8 @@ struct submit_stat {
   uint64_t subitted;
 } __rte_cache_aligned;
 
+struct pkt_content_rdtsc {
+  uint64_t time;
+} __rte_packed;
+
 #endif 

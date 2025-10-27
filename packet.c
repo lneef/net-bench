@@ -1,3 +1,4 @@
+#include <rte_branch_prediction.h>
 #include <rte_byteorder.h>
 #include <rte_common.h>
 #include <rte_ether.h>
@@ -115,14 +116,21 @@ void packet_ipv4_udp_cksum(struct rte_mbuf *mbuf, struct port_info *info) {
   packet_ipv4_cksum(mbuf, info);
 }
 
-int packet_verify_cksum(struct rte_mbuf *mbuf) {
+int packet_verify_cksum(struct port_info* info, struct rte_mbuf *mbuf) {
   struct rte_ipv4_hdr *ipv4 = rte_pktmbuf_mtod_offset(
       mbuf, struct rte_ipv4_hdr *, sizeof(struct rte_ether_hdr));
   struct rte_udp_hdr *udp = (struct rte_udp_hdr *)(ipv4 + 1);
-  int ipv4_cksum = rte_ipv4_cksum(ipv4);
-  ipv4->hdr_checksum = 0;
-  int udp_cksum = rte_ipv4_udptcp_cksum_verify(ipv4, udp);
-  return ipv4_cksum || (udp->dgram_cksum != 0 && udp_cksum);
+  if(likely(info->pkt_config.ipv4.rx_chcksum_offload)){
+      if(mbuf->ol_flags & RTE_MBUF_F_RX_IP_CKSUM_BAD)
+          return -1;
+  }else{
+      if(rte_ipv4_cksum(ipv4))
+          return -1;
+  }
+  if(likely(info->pkt_config.udp.rx_chcksum_offload))
+      return mbuf->ol_flags & RTE_MBUF_F_RX_L4_CKSUM_BAD;
+  else
+      return rte_ipv4_udptcp_cksum_verify(ipv4, udp);
 }
 
 int packet_verify_ipv4(struct rte_mbuf *mbuf) {
