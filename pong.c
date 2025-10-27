@@ -128,17 +128,17 @@ int main(int argc, char *argv[]) {
   sa.sa_handler = handler;
   sigaction(SIGINT, &sa, NULL);
   sigaction(SIGTERM, &sa, NULL);
+  int dpdk_argc = rte_eal_init(argc, argv);
+  if (dpdk_argc < 0)
+    return -1;
+  if (port_info_ctor(&pinfo, PONG, argc - dpdk_argc, argv + dpdk_argc))
+    return -1;
   timestamp_offset = rte_mbuf_dynfield_register(&timestamp_desc);
   if (timestamp_offset < 0) {
     rte_log(RTE_LOG_ERR, RTE_LOGTYPE_USER1,
             "Failed to register timestamp dynfield\n");
     goto cleanup;
   }
-  int dpdk_argc = rte_eal_init(argc, argv);
-  if (dpdk_argc < 0)
-    return -1;
-  if (port_info_ctor(&pinfo, PONG, argc - dpdk_argc, argv + dpdk_argc))
-    return -1;
   lcore_pong(pinfo);
   port_info_dtor(pinfo);
 cleanup:
