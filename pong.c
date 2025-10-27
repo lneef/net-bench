@@ -15,55 +15,56 @@
 #include <rte_mbuf_dyn.h>
 
 #include <arpa/inet.h>
+#include <signal.h>
 #include <stdbool.h>
 #include <stdint.h>
 #include <sys/socket.h>
-#include <signal.h>
+#include <stdalign.h>
 
+#include "packet.h"
 #include "port.h"
 #include "util.h"
-#include "packet.h"
 
 static int terminate = 0;
 static int timestamp_offset = -1;
-	static const struct rte_mbuf_dynfield timestamp_desc = {
-		.name = "dynfield_timestamp",
-		.size = sizeof(rte_mbuf_timestamp_t),
-		.align = alignof(rte_mbuf_timestamp_t),
-	};
+static const struct rte_mbuf_dynfield timestamp_desc = {
+    .name = "dynfield_timestamp",
+    .size = sizeof(rte_mbuf_timestamp_t),
+    .align = alignof(rte_mbuf_timestamp_t),
+};
 static rte_mbuf_timestamp_t total = 0;
 
 static void handler(int sig) {
-    (void)sig;
-    terminate = 1;
+  (void)sig;
+  terminate = 1;
 }
 
-static rte_mbuf_timestamp_t* get_timestamp_field(struct rte_mbuf* mbuf){
-    return RTE_MBUF_DYNFIELD(mbuf, timestamp_offset, rte_mbuf_timestamp_t*);
+static rte_mbuf_timestamp_t *get_timestamp_field(struct rte_mbuf *mbuf) {
+  return RTE_MBUF_DYNFIELD(mbuf, timestamp_offset, rte_mbuf_timestamp_t *);
 }
-static uint16_t
-add_timestamps(uint16_t port __rte_unused, uint16_t qidx __rte_unused,
-		struct rte_mbuf **pkts, uint16_t nb_pkts,
-		uint16_t max_pkts __rte_unused, void *_ __rte_unused){
-    rte_mbuf_timestamp_t timestamp = rte_get_timer_cycles();
-    for(uint16_t i = 0; i < nb_pkts; ++i){
-        rte_mbuf_timestamp_t* ts = get_timestamp_field(pkts[i]);
-        *ts = timestamp;
-    }
-    return nb_pkts;
-}
-
-static uint16_t appl_time(uint16_t port __rte_unused, uint16_t qidx __rte_unused,
-		struct rte_mbuf **pkts, uint16_t nb_pkts, void *_ __rte_unused){
-    rte_mbuf_timestamp_t curr_time = rte_get_timer_cycles();
-    for(uint16_t i = 0; i < nb_pkts; ++i){
-        rte_mbuf_timestamp_t* ts = get_timestamp_field(pkts[i]);
-        total += curr_time - *ts;
-
-    }
-    return nb_pkts;
+static uint16_t add_timestamps(uint16_t port __rte_unused,
+                               uint16_t qidx __rte_unused,
+                               struct rte_mbuf **pkts, uint16_t nb_pkts,
+                               uint16_t max_pkts __rte_unused,
+                               void *_ __rte_unused) {
+  rte_mbuf_timestamp_t timestamp = rte_get_timer_cycles();
+  for (uint16_t i = 0; i < nb_pkts; ++i) {
+    rte_mbuf_timestamp_t *ts = get_timestamp_field(pkts[i]);
+    *ts = timestamp;
+  }
+  return nb_pkts;
 }
 
+static uint16_t appl_time(uint16_t port __rte_unused,
+                          uint16_t qidx __rte_unused, struct rte_mbuf **pkts,
+                          uint16_t nb_pkts, void *_ __rte_unused) {
+  rte_mbuf_timestamp_t curr_time = rte_get_timer_cycles();
+  for (uint16_t i = 0; i < nb_pkts; ++i) {
+    rte_mbuf_timestamp_t *ts = get_timestamp_field(pkts[i]);
+    total += curr_time - *ts;
+  }
+  return nb_pkts;
+}
 
 static int packet_pong_ctor(struct port_info *pinfo, struct rte_mbuf *pkt) {
   struct rte_ether_hdr *eth = rte_pktmbuf_mtod(pkt, struct rte_ether_hdr *);
@@ -103,9 +104,9 @@ static int lcore_pong(void *port) {
   uint16_t nb_rx, nb_tx = 0, nb_rm = 0;
   rte_eth_add_rx_callback(info->port_id, info->rx_queue, add_timestamps, NULL);
   rte_eth_add_tx_callback(info->port_id, info->tx_queue, appl_time, NULL);
-  for (;!terminate;) {
-    nb_rx =
-        rte_eth_rx_burst(info->port_id, info->rx_queue, pkts + nb_rm, info->burst_size - nb_rm);
+  for (; !terminate;) {
+    nb_rx = rte_eth_rx_burst(info->port_id, info->rx_queue, pkts + nb_rm,
+                             info->burst_size - nb_rm);
     int j = 0, i = nb_rm + nb_rx - 1;
     for (; i >= 0; --i, ++j) {
       pkts_out[j] = pkts[i];
@@ -116,7 +117,8 @@ static int lcore_pong(void *port) {
     nb_tx = rte_eth_tx_burst(info->port_id, info->tx_queue, pkts_out, j);
     nb_rm = j - nb_tx;
   }
-  printf("Average time in application: %.2f\n", (double)total / (rte_get_timer_hz() / 1e6));
+  printf("Average time in application: %.2f\n",
+         (double)total / (rte_get_timer_hz() / 1e6));
   return 0;
 }
 
@@ -127,9 +129,10 @@ int main(int argc, char *argv[]) {
   sigaction(SIGINT, &sa, NULL);
   sigaction(SIGTERM, &sa, NULL);
   timestamp_offset = rte_mbuf_dynfield_register(&timestamp_desc);
-  if(timestamp_offset < 0){
-      rte_log(RTE_LOG_ERR, RTE_LOGTYPE_USER1, "Failed to register timestamp dynfield\n");
-      goto cleanup;
+  if (timestamp_offset < 0) {
+    rte_log(RTE_LOG_ERR, RTE_LOGTYPE_USER1,
+            "Failed to register timestamp dynfield\n");
+    goto cleanup;
   }
   int dpdk_argc = rte_eal_init(argc, argv);
   if (dpdk_argc < 0)
