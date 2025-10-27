@@ -80,7 +80,7 @@ static void print_stats(struct port_info *pinfo) {
   struct stat *stats = pinfo->statistics;
   struct submit_stat *sub_stats = pinfo->submit_statistics;
   double avg_latency_us = (double)stats->time / (rte_get_timer_hz() / 1e6) / stats->received;
-  double min_latency_us = (double) stats->min / (rte_get_timer_hz() / 1e6) / stats->received; 
+  double min_latency_us = (double) stats->min / (rte_get_timer_hz() / 1e6); 
   printf("-----Statistics-----\n");
   printf("Reached PPS: %.2f\n", (double)(stats->received) / pinfo->rtime);
   printf("Average latency: %.2f us -- Min latency: %.2f\n", avg_latency_us, min_latency_us);
