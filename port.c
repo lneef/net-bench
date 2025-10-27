@@ -88,19 +88,19 @@ static int port_init(struct port_info *pinfo) {
   if (dev_info.tx_offload_capa & RTE_ETH_RX_OFFLOAD_UDP_CKSUM)
     port_conf.txmode.offloads |= RTE_ETH_RX_OFFLOAD_UDP_CKSUM;
 
-  if(dev_info.rx_offload_capa & RTE_ETH_RX_OFFLOAD_UDP_CKSUM)
+  if (dev_info.rx_offload_capa & RTE_ETH_RX_OFFLOAD_UDP_CKSUM)
     port_conf.rxmode.offloads |= RTE_ETH_RX_OFFLOAD_UDP_CKSUM;
-  if(dev_info.rx_offload_capa & RTE_ETH_RX_OFFLOAD_IPV4_CKSUM)
-      port_conf.rxmode.offloads |= RTE_ETH_RX_OFFLOAD_IPV4_CKSUM;
+  if (dev_info.rx_offload_capa & RTE_ETH_RX_OFFLOAD_IPV4_CKSUM)
+    port_conf.rxmode.offloads |= RTE_ETH_RX_OFFLOAD_IPV4_CKSUM;
 
   pinfo->pkt_config.ipv4.chcksum_offload =
       dev_info.rx_offload_capa & RTE_ETH_RX_OFFLOAD_IPV4_CKSUM;
   pinfo->pkt_config.udp.chcksum_offload =
       dev_info.rx_offload_capa & RTE_ETH_RX_OFFLOAD_UDP_CKSUM;
 
-  pinfo->pkt_config.ipv4.rx_chcksum_offload = 
+  pinfo->pkt_config.ipv4.rx_chcksum_offload =
       dev_info.rx_offload_capa & RTE_ETH_RX_OFFLOAD_IPV4_CKSUM;
-  pinfo->pkt_config.udp.rx_chcksum_offload = 
+  pinfo->pkt_config.udp.rx_chcksum_offload =
       dev_info.rx_offload_capa & RTE_ETH_RX_OFFLOAD_UDP_CKSUM;
 
   retval = rte_eth_dev_configure(port, rx_rings, tx_rings, &port_conf);
@@ -111,6 +111,7 @@ static int port_init(struct port_info *pinfo) {
   if (retval != 0)
     return retval;
   rxconf = dev_info.default_rxconf;
+  rxconf.offloads = port_conf.rxmode.offloads;
   retval = rte_eth_rx_queue_setup(port, q, nb_rxd, rte_eth_dev_socket_id(port),
                                   &rxconf, pinfo->mbuf_pool);
   if (retval < 0)
@@ -156,12 +157,13 @@ int port_info_ctor(struct port_info **info, enum role role, int argc,
         "CTRL_POOL", 16, 0, 0, RTE_MBUF_DEFAULT_BUF_SIZE, rte_socket_id());
     if ((*info)->ctrl_pool == NULL)
       return -1;
-    (*info)->send_pool =
-        rte_pktmbuf_pool_create("SEND_POOL", NUM_SENDBUF, MEMPOOL_CACHE_SIZE, 0,
-                                RTE_MBUF_DEFAULT_BUF_SIZE, rte_socket_id());
-    if ((*info)->send_pool == NULL)
-      return -1;
   }
+  (*info)->send_pool =
+      rte_pktmbuf_pool_create("SEND_POOL", NUM_SENDBUF, MEMPOOL_CACHE_SIZE, 0,
+                              RTE_MBUF_DEFAULT_BUF_SIZE, rte_socket_id());
+  if ((*info)->send_pool == NULL)
+    return -1;
+
   return port_init(*info);
 }
 
