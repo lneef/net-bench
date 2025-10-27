@@ -38,7 +38,7 @@ static uint16_t handle_pong_rdtsc(struct port_info *info, struct rte_mbuf **pkts
   pc.time = rte_get_timer_cycles();
   for (uint16_t i = 0; i < nb_rx; ++i) {
     uint8_t *data = rte_pktmbuf_mtod_offset(pkts[i], uint8_t *, HDR_SIZE);
-    if(packet_verify_ipv4(pkts[i]))
+    if(packet_verify_ipv4(pkts[i]) || packet_verify_rs(info, pkts[i]))
         continue;
     ++rx_count;
     if (packet_verify_cksum(info, pkts[i])) {
@@ -81,6 +81,7 @@ static void print_stats(struct port_info *pinfo) {
   printf("Reached PPS: %.2f\n", (double)(stats->received) / pinfo->rtime);
   printf("Average latency: %.2f us -- Min latency: %.2f\n", avg_latency_us, min_latency_us);
   printf("Submitted PPS: %.2f\n", (double)(sub_stats->subitted) / pinfo->rtime);
+  printf("Packets with incorrect checksum: %lu \n", stats->cksum_incorrect);
 }
 
 int lcore_ping(void *port) {

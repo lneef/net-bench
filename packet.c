@@ -133,6 +133,12 @@ int packet_verify_cksum(struct port_info* info, struct rte_mbuf *mbuf) {
       return rte_ipv4_udptcp_cksum_verify(ipv4, udp);
 }
 
+int packet_verify_rs(struct port_info* info, struct rte_mbuf *mbuf) {
+  struct rte_ipv4_hdr *ipv4 = rte_pktmbuf_mtod_offset(
+      mbuf, struct rte_ipv4_hdr *, sizeof(struct rte_ether_hdr));
+  return !(ipv4->src_addr == info->pkt_config.ipv4.src_ip && ipv4->dst_addr == info->pkt_config.ipv4.dst_ip);
+}
+
 int packet_verify_ipv4(struct rte_mbuf *mbuf) {
   struct rte_ether_hdr *eth = rte_pktmbuf_mtod(mbuf, struct rte_ether_hdr *);
   return !(rte_be_to_cpu_16(eth->ether_type) == RTE_ETHER_TYPE_IPV4);

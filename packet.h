@@ -30,6 +30,8 @@ void packet_ipv4_udp_cksum(struct rte_mbuf *mbuf, struct port_info *info);
 
 int packet_verify_cksum(struct port_info* info,struct rte_mbuf *mbuf);
 
+int packet_verify_rs(struct port_info* info, struct rte_mbuf *mbuf);
+
 int packet_verify_ipv4(struct rte_mbuf *mbuf);
 
 void packet_mempool_ctor(struct rte_mempool *mp, void *opaque, void *obj, unsigned obj_idx __rte_unused);
