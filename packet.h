@@ -26,8 +26,6 @@ void packet_arp_ctor(struct rte_mbuf *mbuf, struct port_info *info);
 
 void packet_ipv4_cksum(struct rte_mbuf *mbuf, struct port_info *info);
 
-void packet_udp_cksum(struct rte_mbuf *mbuf, struct port_info *info);
-
 void packet_ipv4_udp_cksum(struct rte_mbuf *mbuf, struct port_info *info);
 
 int packet_verify_cksum(struct rte_mbuf *mbuf);

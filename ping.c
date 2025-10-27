@@ -101,6 +101,7 @@ int lcore_ping(void *port) {
     rte_log(RTE_LOG_ERR, RTE_LOGTYPE_USER1, "No memory\n");
     return -ENOMEM;
   }
+  pinfo->statistics->min = UINT64_MAX;
   struct rte_mbuf *pkts[BURST_SIZE];
   struct rte_mbuf *rpkts[BURST_SIZE];
   uint16_t tx_nb = pinfo->burst_size;

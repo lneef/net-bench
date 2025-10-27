@@ -99,10 +99,12 @@ void packet_ipv4_cksum(struct rte_mbuf *mbuf, struct port_info *info) {
     mbuf->ol_flags |= RTE_MBUF_F_TX_IP_CKSUM | RTE_MBUF_F_TX_IPV4;
 }
 
-void packet_udp_cksum(struct rte_mbuf *mbuf, struct port_info *info) {
+void packet_ipv4_udp_cksum(struct rte_mbuf *mbuf, struct port_info *info) {
   struct rte_ipv4_hdr *ipv4 = rte_pktmbuf_mtod_offset(
       mbuf, struct rte_ipv4_hdr *, sizeof(struct rte_ether_hdr));
   struct rte_udp_hdr *udp = (struct rte_udp_hdr *)(ipv4 + 1);
+  udp->dgram_cksum = 0;
+  ipv4->hdr_checksum = 0;
   if (!info->pkt_config.udp.chcksum_offload) {
     udp->dgram_cksum = rte_ipv4_udptcp_cksum(ipv4, udp);
   } else {
@@ -110,10 +112,6 @@ void packet_udp_cksum(struct rte_mbuf *mbuf, struct port_info *info) {
         RTE_MBUF_F_TX_UDP_CKSUM | RTE_MBUF_F_TX_IP_CKSUM | RTE_MBUF_F_TX_IPV4;
     udp->dgram_cksum = rte_ipv4_phdr_cksum(ipv4, mbuf->ol_flags);
   }
-}
-
-void packet_ipv4_udp_cksum(struct rte_mbuf *mbuf, struct port_info *info) {
-  packet_udp_cksum(mbuf, info);
   packet_ipv4_cksum(mbuf, info);
 }
 
@@ -127,17 +125,18 @@ int packet_verify_cksum(struct rte_mbuf *mbuf) {
   return ipv4_cksum || (udp->dgram_cksum != 0 && udp_cksum);
 }
 
-int packet_verify_ipv4(struct rte_mbuf *mbuf){
-    struct rte_ether_hdr *eth = rte_pktmbuf_mtod(mbuf, struct rte_ether_hdr *);
-    return !(rte_be_to_cpu_16(eth->ether_type) == RTE_ETHER_TYPE_IPV4);
+int packet_verify_ipv4(struct rte_mbuf *mbuf) {
+  struct rte_ether_hdr *eth = rte_pktmbuf_mtod(mbuf, struct rte_ether_hdr *);
+  return !(rte_be_to_cpu_16(eth->ether_type) == RTE_ETHER_TYPE_IPV4);
 }
 
-void packet_mempool_ctor(struct rte_mempool *mp, void *opaque, void *obj, unsigned int obj_idx __rte_unused){
-    struct rte_mbuf *mbuf = (struct rte_mbuf *)obj;
-    struct port_info *info = (struct port_info *)opaque;
-    packet_pp_ctor_udp(mbuf, &info->pkt_config);
+void packet_mempool_ctor(struct rte_mempool *mp, void *opaque, void *obj,
+                         unsigned int obj_idx __rte_unused) {
+  struct rte_mbuf *mbuf = (struct rte_mbuf *)obj;
+  struct port_info *info = (struct port_info *)opaque;
+  packet_pp_ctor_udp(mbuf, &info->pkt_config);
 
-    mbuf->port = info->port_id;
-    mbuf->pool = mp;
-    mbuf->next = NULL;
+  mbuf->port = info->port_id;
+  mbuf->pool = mp;
+  mbuf->next = NULL;
 }
