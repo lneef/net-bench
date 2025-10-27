@@ -1,4 +1,6 @@
+#include <rte_byteorder.h>
 #include <rte_common.h>
+#include <rte_ether.h>
 #include <rte_ip.h>
 #include <rte_mbuf.h>
 #include <rte_mbuf_core.h>
@@ -123,6 +125,11 @@ int packet_verify_cksum(struct rte_mbuf *mbuf) {
   ipv4->hdr_checksum = 0;
   int udp_cksum = rte_ipv4_udptcp_cksum_verify(ipv4, udp);
   return ipv4_cksum || (udp->dgram_cksum != 0 && udp_cksum);
+}
+
+int packet_verify_ipv4(struct rte_mbuf *mbuf){
+    struct rte_ether_hdr *eth = rte_pktmbuf_mtod(mbuf, struct rte_ether_hdr *);
+    return !(rte_be_to_cpu_16(eth->ether_type) == RTE_ETHER_TYPE_IPV4);
 }
 
 void packet_mempool_ctor(struct rte_mempool *mp, void *opaque, void *obj, unsigned int obj_idx __rte_unused){
