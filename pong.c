@@ -32,7 +32,10 @@ static const struct rte_mbuf_dynfield timestamp_desc = {
     .size = sizeof(rte_mbuf_timestamp_t),
     .align = alignof(rte_mbuf_timestamp_t),
 };
-static rte_mbuf_timestamp_t total = 0;
+static struct{
+    rte_mbuf_timestamp_t total;
+    uint64_t total_pkts;
+}stats;
 
 static void handler(int sig) {
   (void)sig;
@@ -61,8 +64,9 @@ static uint16_t appl_time(uint16_t port __rte_unused,
   rte_mbuf_timestamp_t curr_time = rte_get_timer_cycles();
   for (uint16_t i = 0; i < nb_pkts; ++i) {
     rte_mbuf_timestamp_t *ts = get_timestamp_field(pkts[i]);
-    total += curr_time - *ts;
+    stats.total += curr_time - *ts;
   }
+  stats.total_pkts += nb_pkts;
   return nb_pkts;
 }
 
@@ -118,7 +122,8 @@ static int lcore_pong(void *port) {
     nb_rm = j - nb_tx;
   }
   printf("Average time in application: %.2f\n",
-         (double)total / (rte_get_timer_hz() / 1e6));
+         (double)stats.total / (rte_get_timer_hz() / 1e6) / stats.total_pkts);
+
   return 0;
 }
 
