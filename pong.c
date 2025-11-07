@@ -109,17 +109,19 @@ static int lcore_pong(void *port) {
   rte_eth_add_rx_callback(info->port_id, info->rx_queue, add_timestamps, NULL);
   rte_eth_add_tx_callback(info->port_id, info->tx_queue, appl_time, NULL);
   for (; !terminate;) {
-    nb_rx = rte_eth_rx_burst(info->port_id, info->rx_queue, pkts + nb_rm,
+    nb_rx = rte_eth_rx_burst(info->port_id, info->rx_queue, pkts,
                              info->burst_size - nb_rm);
-    int j = 0, i = nb_rm + nb_rx - 1;
-    for (; i >= 0; --i, ++j) {
-      pkts_out[j] = pkts[i];
-      ret = handle_packet(info, pkts_out[j]);
-      if (unlikely(ret < 0))
-        --j;
-    }
-    nb_tx = rte_eth_tx_burst(info->port_id, info->tx_queue, pkts_out, j);
-    nb_rm = j - nb_tx;
+    for(uint16_t i = 0; i  < nb_rx; ++i){
+        pkts_out[nb_rm] = pkts[i];
+        ret = handle_packet(info, pkts_out[nb_rm]);
+        if(likely(!ret))
+            ++nb_rm;
+
+    } 
+    nb_tx = rte_eth_tx_burst(info->port_id, info->tx_queue, pkts_out, nb_rm);
+    for(uint16_t i = nb_tx, j = 0; i < nb_rm; ++i, ++j)
+        pkts_out[j] = pkts_out[i];;
+    nb_rm = nb_rm - nb_tx;
   }
   printf("Average time in application: %.2f\n",
          (double)stats.total / (rte_get_timer_hz() / 1e6) / stats.total_pkts);
