@@ -105,8 +105,9 @@ int lcore_ping(void *port) {
   uint64_t wait_cycles = time_between_bursts(pinfo->bps);
   uint64_t cycles = rte_get_timer_cycles();
   uint64_t end = pinfo->rtime * rte_get_timer_hz() + cycles;
+  uint64_t deadline;
   rte_mempool_obj_iter(pinfo->send_pool, packet_mempool_ctor, pinfo);
-  for (; rte_get_timer_cycles() < end;) {
+  for (; cycles < end; cycles = rte_get_timer_cycles()) {
     if (rte_mempool_get_bulk(pinfo->send_pool, (void**)pkts, tx_nb)) {
       rte_log(RTE_LOG_ERR, RTE_LOGTYPE_USER1,
               "Failed to allocated burst of size %u\n", tx_nb);
@@ -116,7 +117,7 @@ int lcore_ping(void *port) {
     tx_nb = rte_eth_tx_burst(pinfo->port_id, pinfo->tx_queue, pkts,
                              pinfo->burst_size);
     pinfo->submit_statistics->subitted += tx_nb;
-    cycles += wait_cycles;
+    deadline = cycles + wait_cycles;
     uint16_t rx_nb = 0, rx_total = 0;
     // wait until time slice expires (bps) or sent packets are received
     do {
@@ -125,7 +126,7 @@ int lcore_ping(void *port) {
       if (rx_nb)
         rx_total += handle_pong_rdtsc(pinfo, rpkts, rx_nb);
 
-    } while (rx_total < tx_nb && rte_get_timer_cycles() < cycles);
+    } while (rx_total < tx_nb && rte_get_timer_cycles() < deadline);
   }
   return 0;
 }
