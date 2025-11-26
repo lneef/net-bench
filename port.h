@@ -18,7 +18,6 @@
 #include <getopt.h>
 #include <stdbool.h>
 #include <stdint.h>
-#include <string_view>
 #include <unistd.h>
 
 #include <memory.h>

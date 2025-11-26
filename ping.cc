@@ -1,7 +1,4 @@
-#include <bits/time.h>
 #include <cstdint>
-#include <generic/rte_cycles.h>
-#include <netinet/in.h>
 #include <rte_branch_prediction.h>
 #include <rte_common.h>
 #include <rte_cycles.h>
@@ -126,23 +123,26 @@ static int lcore_ping(void *port) {
   return 0;
 }
 
-
-static int lcore_send(void* port){
-    port_info *pinfo = static_cast<port_info*>(port);
-    auto& config = pinfo->config;
-    std::vector<rte_mbuf*> pkts(config.burst_size);
-    uint16_t tx_nb = config.burst_size, tx_left = 0;
-    uint64_t cycles = rte_get_timer_cycles();
-    uint64_t end = config.rtime * rte_get_timer_hz() + cycles;
-    rte_mempool_obj_iter(pinfo->send_pool.get(), packet_mempool_ctor_cksum, pinfo);
-    for(; cycles < end; cycles = rte_get_timer_cycles()){
-        if(rte_mempool_get_bulk(pinfo->send_pool.get(), (void**)pkts.data(), tx_nb))
-            tx_left = 0;
-        tx_nb = rte_eth_tx_burst(pinfo->port_id, pinfo->tx_queue, pkts.data() + tx_left, config.burst_size - tx_left);
-        tx_left = config.burst_size - tx_left - tx_nb;
-        pinfo->submit_statistics->subitted += tx_nb;
-    }
-    return 0;
+static int lcore_send(void *port) {
+  port_info *pinfo = static_cast<port_info *>(port);
+  auto &config = pinfo->config;
+  std::vector<rte_mbuf *> pkts(config.burst_size);
+  uint16_t tx_nb = config.burst_size, tx_left = 0;
+  uint64_t cycles = rte_get_timer_cycles();
+  uint64_t end = config.rtime * rte_get_timer_hz() + cycles;
+  rte_mempool_obj_iter(pinfo->send_pool.get(), packet_mempool_ctor_cksum,
+                       pinfo);
+  for (; cycles < end; cycles = rte_get_timer_cycles()) {
+    if (rte_mempool_get_bulk(pinfo->send_pool.get(), (void **)pkts.data(),
+                             tx_nb))
+      tx_left = 0;
+    tx_nb =
+        rte_eth_tx_burst(pinfo->port_id, pinfo->tx_queue, pkts.data() + tx_left,
+                         config.burst_size - tx_left);
+    tx_left = config.burst_size - tx_left - tx_nb;
+    pinfo->submit_statistics->subitted += tx_nb;
+  }
+  return 0;
 }
 
 int main(int argc, char *argv[]) {
@@ -150,17 +150,17 @@ int main(int argc, char *argv[]) {
   if (dpdk_argc < 0)
     return -1;
   port_info pinfo(role::PING, argc - dpdk_argc, argv + dpdk_argc);
-  if(pinfo.configure())
-      return -1;
+  if (pinfo.configure())
+    return -1;
   switch (pinfo.config.opmode) {
-      case mode::SEND:
-          lcore_send(&pinfo);
-          break;
-        case mode::SDRV:
-          lcore_ping(&pinfo);
-          break;
-        default:
-          break;
+  case mode::SEND:
+    lcore_send(&pinfo);
+    break;
+  case mode::SDRV:
+    lcore_ping(&pinfo);
+    break;
+  default:
+    break;
   }
   print_stats(&pinfo);
   return 0;

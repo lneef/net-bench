@@ -1,5 +1,4 @@
 #include <cstdint>
-#include <generic/rte_cycles.h>
 #include <rte_branch_prediction.h>
 #include <rte_common.h>
 #include <rte_eal.h>
