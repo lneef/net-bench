@@ -1,6 +1,3 @@
-#include <generic/rte_cycles.h>
-#include <netinet/in.h>
-#include <netinet/ip.h>
 #include <rte_branch_prediction.h>
 #include <rte_common.h>
 #include <rte_eal.h>
@@ -15,11 +12,12 @@
 #include <rte_mbuf_dyn.h>
 
 #include <arpa/inet.h>
+#include <rte_mempool.h>
 #include <signal.h>
+#include <stdalign.h>
 #include <stdbool.h>
 #include <stdint.h>
 #include <sys/socket.h>
-#include <stdalign.h>
 
 #include "packet.h"
 #include "port.h"
@@ -32,10 +30,10 @@ static const struct rte_mbuf_dynfield timestamp_desc = {
     .size = sizeof(rte_mbuf_timestamp_t),
     .align = alignof(rte_mbuf_timestamp_t),
 };
-static struct{
-    rte_mbuf_timestamp_t total;
-    uint64_t total_pkts;
-}stats;
+static struct {
+  rte_mbuf_timestamp_t total;
+  uint64_t total_pkts;
+} stats;
 
 static void handler(int sig) {
   (void)sig;
@@ -102,30 +100,52 @@ static int handle_packet(struct port_info *info, struct rte_mbuf *pkt) {
 
 static int lcore_pong(void *port) {
   int ret;
-  struct port_info *info = (struct port_info *)port;
-  struct rte_mbuf *pkts[BURST_SIZE];
-  struct rte_mbuf *pkts_out[BURST_SIZE];
+  struct port_info *pinfo = (struct port_info *)port;
+  struct rte_mbuf **pkts =
+      rte_calloc("", pinfo->burst_size, sizeof(struct rte_mbuf *),
+                 RTE_CACHE_LINE_MIN_SIZE);
+  struct rte_mbuf **pkts_out =
+      rte_calloc("", pinfo->burst_size, sizeof(struct rte_mbuf *),
+                 RTE_CACHE_LINE_MIN_SIZE);
   uint16_t nb_rx, nb_tx = 0, nb_rm = 0;
-  rte_eth_add_rx_callback(info->port_id, info->rx_queue, add_timestamps, NULL);
-  rte_eth_add_tx_callback(info->port_id, info->tx_queue, appl_time, NULL);
+  rte_eth_add_rx_callback(pinfo->port_id, pinfo->rx_queue, add_timestamps,
+                          NULL);
+  rte_eth_add_tx_callback(pinfo->port_id, pinfo->tx_queue, appl_time, NULL);
   for (; !terminate;) {
-    nb_rx = rte_eth_rx_burst(info->port_id, info->rx_queue, pkts,
-                             info->burst_size - nb_rm);
-    for(uint16_t i = 0; i  < nb_rx; ++i){
-        pkts_out[nb_rm] = pkts[i];
-        ret = handle_packet(info, pkts_out[nb_rm]);
-        if(likely(!ret))
-            ++nb_rm;
-
-    } 
-    nb_tx = rte_eth_tx_burst(info->port_id, info->tx_queue, pkts_out, nb_rm);
-    for(uint16_t i = nb_tx, j = 0; i < nb_rm; ++i, ++j)
-        pkts_out[j] = pkts_out[i];;
+    nb_rx = rte_eth_rx_burst(pinfo->port_id, pinfo->rx_queue, pkts,
+                             pinfo->burst_size - nb_rm);
+    for (uint16_t i = 0; i < nb_rx; ++i) {
+      pkts_out[nb_rm] = pkts[i];
+      ret = handle_packet(pinfo, pkts_out[nb_rm]);
+      if (likely(!ret))
+        ++nb_rm;
+    }
+    nb_tx = rte_eth_tx_burst(pinfo->port_id, pinfo->tx_queue, pkts_out, nb_rm);
+    for (uint16_t i = nb_tx, j = 0; i < nb_rm; ++i, ++j)
+      pkts_out[j] = pkts_out[i];
+    ;
     nb_rm = nb_rm - nb_tx;
   }
   printf("Average time in application: %.2f\n",
          (double)stats.total / (rte_get_timer_hz() / 1e6) / stats.total_pkts);
 
+  return 0;
+}
+
+static int lcore_recv(void *port) {
+  struct port_info *pinfo = (struct port_info *)port;
+  struct rte_mbuf **pkts =
+      rte_calloc("", pinfo->burst_size, sizeof(struct rte_mbuf *),
+                 RTE_CACHE_LINE_MIN_SIZE);
+
+  uint16_t nb_rx;
+  uint64_t rcvd = 0;
+    for (; !terminate;) {
+    nb_rx = rte_eth_rx_burst(pinfo->port_id, pinfo->rx_queue, pkts,
+                             pinfo->burst_size);
+    rcvd += nb_rx;
+    }
+    printf("Packets received: %lu\n", rcvd);
   return 0;
 }
 
@@ -146,7 +166,14 @@ int main(int argc, char *argv[]) {
             "Failed to register timestamp dynfield\n");
     goto cleanup;
   }
-  lcore_pong(pinfo);
+  switch(pinfo->pomode){
+      case RECV:
+          lcore_recv(pinfo);
+          break;
+        case RVSD:
+          lcore_pong(pinfo);
+          break;
+  }
   port_info_dtor(pinfo);
 cleanup:
   rte_eal_cleanup();

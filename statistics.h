@@ -12,7 +12,7 @@ struct stat {
 } __rte_cache_aligned;
 
 struct submit_stat {
-  uint64_t subitted;
+  uint64_t submitted;
 } __rte_cache_aligned;
 
 struct pkt_content_rdtsc {

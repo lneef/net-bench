@@ -35,4 +35,7 @@ int packet_verify_rs(struct port_info* info, struct rte_mbuf *mbuf);
 int packet_verify_ipv4(struct rte_mbuf *mbuf);
 
 void packet_mempool_ctor(struct rte_mempool *mp, void *opaque, void *obj, unsigned obj_idx __rte_unused);
+
+void packet_mempool_ctor_full(struct rte_mempool *mp, void *opaque, void *obj,
+                         unsigned int obj_idx __rte_unused);
 #endif

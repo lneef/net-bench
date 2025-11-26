@@ -1,3 +1,4 @@
+#include <assert.h>
 #include <rte_branch_prediction.h>
 #include <rte_byteorder.h>
 #include <rte_common.h>
@@ -10,6 +11,7 @@
 
 #include "packet.h"
 #include "port.h"
+#include "util.h"
 
 int packet_eth_ctor(struct rte_mbuf *mbuf, struct rte_ether_hdr *eth,
                     struct eth_config *config, rte_be16_t ether_type) {
@@ -111,10 +113,10 @@ void packet_ipv4_udp_cksum(struct rte_mbuf *mbuf, struct port_info *info) {
   } else {
     mbuf->ol_flags |=
         RTE_MBUF_F_TX_UDP_CKSUM | RTE_MBUF_F_TX_IP_CKSUM | RTE_MBUF_F_TX_IPV4;
-    udp->dgram_cksum = rte_ipv4_phdr_cksum(ipv4, mbuf->ol_flags);
   }
   packet_ipv4_cksum(mbuf, info);
 }
+
 
 int packet_verify_cksum(struct port_info* info, struct rte_mbuf *mbuf) {
   struct rte_ipv4_hdr *ipv4 = rte_pktmbuf_mtod_offset(
@@ -153,4 +155,17 @@ void packet_mempool_ctor(struct rte_mempool *mp, void *opaque, void *obj,
   mbuf->port = info->port_id;
   mbuf->pool = mp;
   mbuf->next = NULL;
+}
+void packet_mempool_ctor_full(struct rte_mempool *mp, void *opaque, void *obj,
+                         unsigned int obj_idx __rte_unused) {
+  struct rte_mbuf *mbuf = (struct rte_mbuf *)obj;
+  struct port_info *info = (struct port_info *)opaque;
+  packet_pp_ctor_udp(mbuf, &info->pkt_config);
+
+  packet_ipv4_udp_cksum(mbuf, info);
+  mbuf->port = info->port_id;
+  mbuf->pool = mp;
+  mbuf->next = NULL;
+
+  assert(mbuf->pkt_len == info->pkt_config.frame_size);
 }

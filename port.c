@@ -3,6 +3,7 @@
 #include <rte_lcore.h>
 #include <rte_mbuf_core.h>
 #include <stdlib.h>
+#include <string.h>
 
 #include "port.h"
 
@@ -10,18 +11,26 @@ static struct rte_eth_conf port_conf = {
     .rxmode = {.max_lro_pkt_size = RTE_ETHER_MAX_LEN},
     .txmode = {.mq_mode = RTE_ETH_MQ_TX_NONE}};
 
+static void parse_mode(struct port_info *info, const char *arg) {
+  if (!strcmp(arg, "SEND")) {
+    info->pimode = SEND;
+  } else if (!strcmp(arg, "SDRV")) {
+    info->pimode = SDRV;
+  } else if (!strcmp(arg, "RECV")) {
+    info->pomode = RECV;
+  } else if (!strcmp(arg, "RVSD")) {
+    info->pomode = RVSD;
+  }
+}
+
 static int port_init_cmdline(struct port_info *info, int argc, char **argv) {
   int opt, option_index;
   static const struct option long_options[] = {
-      {"dport", required_argument, 0, 0},
-      {"sport", required_argument, 0, 0},
-      {"dip", required_argument, 0, 0},
-      {"sip", required_argument, 0, 0},
-      {"bps", required_argument, 0, 0},
-      {"rt", required_argument, 0, 0},
-      {"bs", required_argument, 0, 0},
-      {"dmac", required_argument, 0, 0},
-      {0, 0, 0, 0}};
+      {"dport", required_argument, 0, 0}, {"sport", required_argument, 0, 0},
+      {"dip", required_argument, 0, 0},   {"sip", required_argument, 0, 0},
+      {"bps", required_argument, 0, 0},   {"rt", required_argument, 0, 0},
+      {"bs", required_argument, 0, 0},    {"dmac", required_argument, 0, 0},
+      {"mode", required_argument, 0, 0},  {0, 0, 0, 0}};
   while ((opt = getopt_long(argc, argv, "", long_options, &option_index)) !=
          -1) {
     if (opt == '?')
@@ -51,10 +60,11 @@ static int port_init_cmdline(struct port_info *info, int argc, char **argv) {
     case 7:
       rte_ether_unformat_addr(optarg, &info->pkt_config.eth.dst_mac);
       break;
+    case 8:
+      parse_mode(info, optarg);
     default:
       break;
     }
-    info->burst_size = RTE_MIN(info->burst_size, BURST_SIZE);
   }
   return 0;
 }
@@ -163,6 +173,20 @@ int port_info_ctor(struct port_info **info, enum role role, int argc,
                                 RTE_MBUF_DEFAULT_BUF_SIZE, rte_socket_id());
     if ((*info)->send_pool == NULL)
       return -1;
+    (*info)->submit_statistics =
+
+        rte_calloc(NULL, 1, sizeof(struct submit_stat),
+                   RTE_CACHE_LINE_MIN_SIZE);
+    if (!(*info)->submit_statistics) {
+      rte_log(RTE_LOG_ERR, RTE_LOGTYPE_USER1, "No memory\n");
+      return -ENOMEM;
+    }
+    (*info)->statistics =
+        rte_calloc(NULL, 1, sizeof(struct stat), RTE_CACHE_LINE_MIN_SIZE);
+    if (!(*info)->statistics) {
+      rte_log(RTE_LOG_ERR, RTE_LOGTYPE_USER1, "No memory\n");
+      return -ENOMEM;
+    }
   }
   return port_init(*info);
 }

@@ -29,6 +29,8 @@
 #define ETHER_SIZE (RTE_ETHER_MAX_LEN + RTE_PKTMBUF_HEADROOM)
 #define JUMBO_SIZE (RTE_ETHER_MAX_JUMBO_FRAME_LEN + RTE_PKTMBUF_HEADROOM)
 enum role{PING, PONG};
+enum porole{RECV, RVSD};
+enum pirole{SEND, SDRV};
 
 struct eth_config {
   struct rte_ether_addr src_mac;
@@ -65,6 +67,10 @@ struct port_info {
   uint16_t ctrl_queue;
   uint64_t bps;
   uint64_t rtime;
+  union{
+      enum pirole pimode;
+      enum porole pomode;
+  };
   struct stat *statistics;
   struct submit_stat *submit_statistics;
   struct packet_config pkt_config;
