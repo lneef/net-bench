@@ -163,5 +163,6 @@ int main(int argc, char *argv[]) {
     break;
   }
   print_stats(&pinfo);
+  rte_eal_cleanup();
   return 0;
 }

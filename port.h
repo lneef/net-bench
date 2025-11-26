@@ -87,12 +87,11 @@ struct port_info {
   mempool_ptr mbuf_pool, send_pool;
   stat* statistics;
   submit_stat* submit_statistics;
-  port_info(role rl, int argc, char **argv)
-      : mbuf_pool(rte_pktmbuf_pool_create(
+  port_info(role rl, int argc, char **argv): port_id(0), mbuf_pool(rte_pktmbuf_pool_create(
                       "MBUF_POOL", NUM_MBUFS, MEMPOOL_CACHE_SIZE, 0,
                       RTE_MBUF_DEFAULT_BUF_SIZE, rte_socket_id()),
                   &rte_mempool_free),
-        send_pool(nullptr, nullptr), statistics(static_cast<stat*>(rte_calloc("stat", 1, sizeof(stat), RTE_CACHE_LINE_SIZE))),
+        send_pool(nullptr, &rte_mempool_free), statistics(static_cast<stat*>(rte_calloc("stat", 1, sizeof(stat), RTE_CACHE_LINE_SIZE))),
         submit_statistics(static_cast<submit_stat*>(rte_calloc("submit_stat", 1, sizeof(submit_stat), RTE_CACHE_LINE_SIZE))) {
     if (rl == role::PING)
       send_pool = {
