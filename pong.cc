@@ -1,8 +1,5 @@
 #include <cstdint>
 #include <generic/rte_cycles.h>
-#include <netinet/in.h>
-#include <netinet/ip.h>
-#include <print>
 #include <rte_branch_prediction.h>
 #include <rte_common.h>
 #include <rte_eal.h>
@@ -23,10 +20,8 @@
 #include <stdint.h>
 #include <sys/socket.h>
 
-#include <type_traits>
 #include <vector>
 #include <span>
-#include <print>
 
 #include "packet.h"
 #include "port.h"
@@ -161,7 +156,8 @@ static int lcore_recv(void *port) {
     info->statistics->received += nb_rx;
     info->statistics->cksum_incorrect += verify_all(info, pkts, nb_rx);
   }
-  std::println("Received: {}, With incorrect cksum: {}", info->statistics->received, info->statistics->cksum_incorrect);
+  
+  printf("Received: %lu, With incorrect cksum: %lu", info->statistics->received, info->statistics->cksum_incorrect);
   return 0;
 }
 
