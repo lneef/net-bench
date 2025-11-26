@@ -71,8 +71,7 @@ static int port_init_cmdline(struct port_info *info, int argc, char **argv) {
 
 static int port_init(struct port_info *pinfo) {
   const uint16_t rx_rings = 1, tx_rings = 1;
-  uint16_t nb_rxd = RX_RING_SIZE;
-  uint16_t nb_txd = TX_RING_SIZE;
+  uint16_t nb_rxd, nb_txd;
   int retval;
   uint16_t port = pinfo->port_id;
   uint16_t q = 0;
@@ -90,6 +89,8 @@ static int port_init(struct port_info *pinfo) {
            strerror(-retval));
     return retval;
   }
+  nb_rxd = dev_info.rx_desc_lim.nb_max;
+  nb_txd = dev_info.tx_desc_lim.nb_max;
 
   if (dev_info.tx_offload_capa & RTE_ETH_TX_OFFLOAD_MBUF_FAST_FREE)
     port_conf.txmode.offloads |= RTE_ETH_TX_OFFLOAD_MBUF_FAST_FREE;
