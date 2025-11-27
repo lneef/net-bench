@@ -7,6 +7,7 @@
 #include <rte_launch.h>
 #include <rte_lcore.h>
 #include <rte_log.h>
+#include <rte_malloc.h>
 #include <rte_mbuf.h>
 #include <rte_mbuf_core.h>
 #include <rte_mbuf_dyn.h>
@@ -126,6 +127,8 @@ static int lcore_pong(void *port) {
     ;
     nb_rm = nb_rm - nb_tx;
   }
+  rte_free(pkts);
+  rte_free(pkts_out);
   printf("Average time in application: %.2f\n",
          (double)stats.total / (rte_get_timer_hz() / 1e6) / stats.total_pkts);
 
@@ -140,12 +143,14 @@ static int lcore_recv(void *port) {
 
   uint16_t nb_rx;
   uint64_t rcvd = 0;
-    for (; !terminate;) {
+  for (; !terminate;) {
     nb_rx = rte_eth_rx_burst(pinfo->port_id, pinfo->rx_queue, pkts,
                              pinfo->burst_size);
     rcvd += nb_rx;
-    }
-    printf("Packets received: %lu\n", rcvd);
+    rte_pktmbuf_free_bulk(pkts, nb_rx);
+  }
+  rte_free(pkts);
+  printf("Packets received: %lu\n", rcvd);
   return 0;
 }
 
@@ -166,13 +171,13 @@ int main(int argc, char *argv[]) {
             "Failed to register timestamp dynfield\n");
     goto cleanup;
   }
-  switch(pinfo->pomode){
-      case RECV:
-          lcore_recv(pinfo);
-          break;
-        case RVSD:
-          lcore_pong(pinfo);
-          break;
+  switch (pinfo->pomode) {
+  case RECV:
+    lcore_recv(pinfo);
+    break;
+  case RVSD:
+    lcore_pong(pinfo);
+    break;
   }
   port_info_dtor(pinfo);
 cleanup:

@@ -1,6 +1,3 @@
-#include <bits/time.h>
-#include <generic/rte_cycles.h>
-#include <netinet/in.h>
 #include <rte_branch_prediction.h>
 #include <rte_common.h>
 #include <rte_cycles.h>
@@ -127,6 +124,8 @@ int lcore_ping(void *port) {
 
     } while (rx_total < tx_nb && rte_get_timer_cycles() < deadline);
   }
+  rte_free(pkts);
+  rte_free(rpkts);
   return 0;
 }
 
@@ -148,6 +147,7 @@ int lcore_send(void *port) {
     tx_free += tx_nb;
     pinfo->submit_statistics->submitted += tx_nb;
   }
+  rte_free(pkts);
   return 0;
 }
 
