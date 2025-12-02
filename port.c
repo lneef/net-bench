@@ -69,7 +69,7 @@ static int port_init_cmdline(struct port_info *info, int argc, char **argv) {
   return 0;
 }
 
-static int port_init(struct port_info *pinfo) {
+static int port_init(struct port_info *pinfo, enum role role) {
   const uint16_t rx_rings = 1, tx_rings = 1;
   uint16_t nb_rxd, nb_txd;
   int retval;
@@ -121,6 +121,33 @@ static int port_init(struct port_info *pinfo) {
   retval = rte_eth_dev_adjust_nb_rx_tx_desc(port, &nb_rxd, &nb_txd);
   if (retval != 0)
     return retval;
+  pinfo->mbuf_pool =
+      rte_pktmbuf_pool_create("MBUF_POOL", nb_rxd + pinfo->burst_size, MEMPOOL_CACHE_SIZE, 0,
+                              RTE_MBUF_DEFAULT_BUF_SIZE, rte_socket_id());
+  if (pinfo->mbuf_pool == NULL)
+    return -1;
+  if (role == PING) {
+    pinfo->send_pool =
+        rte_pktmbuf_pool_create("SEND_POOL", nb_txd, MEMPOOL_CACHE_SIZE, 0,
+                                RTE_MBUF_DEFAULT_BUF_SIZE, rte_socket_id());
+    if (pinfo->send_pool == NULL)
+      return -1;
+    pinfo->submit_statistics =
+
+        rte_calloc(NULL, 1, sizeof(struct submit_stat),
+                   RTE_CACHE_LINE_MIN_SIZE);
+    if (!pinfo->submit_statistics) {
+      rte_log(RTE_LOG_ERR, RTE_LOGTYPE_USER1, "No memory\n");
+      return -ENOMEM;
+    }
+    pinfo->statistics =
+        rte_calloc(NULL, 1, sizeof(struct stat), RTE_CACHE_LINE_MIN_SIZE);
+    if (!pinfo->statistics) {
+      rte_log(RTE_LOG_ERR, RTE_LOGTYPE_USER1, "No memory\n");
+      return -ENOMEM;
+    }
+  }
+
   rxconf = dev_info.default_rxconf;
   rxconf.offloads = port_conf.rxmode.offloads;
   retval = rte_eth_rx_queue_setup(port, q, nb_rxd, rte_eth_dev_socket_id(port),
@@ -158,38 +185,7 @@ int port_info_ctor(struct port_info **info, enum role role, int argc,
   if (port_init_cmdline(*info, argc, argv))
     return -1;
   (*info)->port_id = 0;
-  (*info)->mbuf_pool =
-      rte_pktmbuf_pool_create("MBUF_POOL", NUM_MBUFS, MEMPOOL_CACHE_SIZE, 0,
-                              RTE_MBUF_DEFAULT_BUF_SIZE, rte_socket_id());
-  if ((*info)->mbuf_pool == NULL)
-    return -1;
-  if (role == PING) {
-    (*info)->ctrl_pool = rte_pktmbuf_pool_create(
-        "CTRL_POOL", 16, 0, 0, RTE_MBUF_DEFAULT_BUF_SIZE, rte_socket_id());
-    if ((*info)->ctrl_pool == NULL)
-      return -1;
-
-    (*info)->send_pool =
-        rte_pktmbuf_pool_create("SEND_POOL", NUM_SENDBUF, MEMPOOL_CACHE_SIZE, 0,
-                                RTE_MBUF_DEFAULT_BUF_SIZE, rte_socket_id());
-    if ((*info)->send_pool == NULL)
-      return -1;
-    (*info)->submit_statistics =
-
-        rte_calloc(NULL, 1, sizeof(struct submit_stat),
-                   RTE_CACHE_LINE_MIN_SIZE);
-    if (!(*info)->submit_statistics) {
-      rte_log(RTE_LOG_ERR, RTE_LOGTYPE_USER1, "No memory\n");
-      return -ENOMEM;
-    }
-    (*info)->statistics =
-        rte_calloc(NULL, 1, sizeof(struct stat), RTE_CACHE_LINE_MIN_SIZE);
-    if (!(*info)->statistics) {
-      rte_log(RTE_LOG_ERR, RTE_LOGTYPE_USER1, "No memory\n");
-      return -ENOMEM;
-    }
-  }
-  return port_init(*info);
+  return port_init(*info, role);
 }
 
 int port_info_dtor(struct port_info *info) {
@@ -197,8 +193,6 @@ int port_info_dtor(struct port_info *info) {
   rte_eth_dev_close(info->port_id);
   if (info->mbuf_pool)
     rte_mempool_free(info->mbuf_pool);
-  if (info->ctrl_pool)
-    rte_mempool_free(info->ctrl_pool);
   if (info->send_pool)
     rte_mempool_free(info->send_pool);
   rte_free(info->statistics);

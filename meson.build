@@ -10,12 +10,10 @@ add_project_arguments('-Wpedantic', language: 'c')
 sources_ping = files('ping.c',
   'packet.c',
   'port.c',
-  'arp.c',
   'util.c')
 sources_pong = files('pong.c',
   'packet.c',
   'port.c',
-  'arp.c',
   'util.c')
 
 executable('dpdk-ping', sources_ping, dependencies: dpdk_dep)

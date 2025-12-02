@@ -94,9 +94,8 @@ static int handle_packet(struct port_info *info, struct rte_mbuf *pkt) {
   case RTE_ETHER_TYPE_IPV4:
     return packet_pong_ctor(info, pkt);
   default:
-    rte_pktmbuf_free(pkt);
+    return -1;
   }
-  return -1;
 }
 
 static int lcore_pong(void *port) {
@@ -120,6 +119,8 @@ static int lcore_pong(void *port) {
       ret = handle_packet(pinfo, pkts_out[nb_rm]);
       if (likely(!ret))
         ++nb_rm;
+      else
+          rte_pktmbuf_free(pkts[i]);
     }
     nb_tx = rte_eth_tx_burst(pinfo->port_id, pinfo->tx_queue, pkts_out, nb_rm);
     for (uint16_t i = nb_tx, j = 0; i < nb_rm; ++i, ++j)

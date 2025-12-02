@@ -20,11 +20,7 @@
 #include "statistics.h"
 
 #define BURST_SIZE 32
-#define RX_RING_SIZE 1024
-#define TX_RING_SIZE 1024
 #define MEMPOOL_CACHE_SIZE 256
-#define NUM_MBUFS 8191
-#define NUM_SENDBUF (2 * TX_RING_SIZE -  1)
 
 #define ETHER_SIZE (RTE_ETHER_MAX_LEN + RTE_PKTMBUF_HEADROOM)
 #define JUMBO_SIZE (RTE_ETHER_MAX_JUMBO_FRAME_LEN + RTE_PKTMBUF_HEADROOM)
@@ -64,7 +60,6 @@ struct port_info {
   uint16_t burst_size;
   uint16_t rx_queue;
   uint16_t tx_queue;
-  uint16_t ctrl_queue;
   uint64_t bps;
   uint64_t rtime;
   union{
@@ -75,7 +70,6 @@ struct port_info {
   struct submit_stat *submit_statistics;
   struct packet_config pkt_config;
   struct rte_mempool *mbuf_pool;
-  struct rte_mempool *ctrl_pool;
   struct rte_mempool *send_pool;
 } __rte_cache_aligned;
 

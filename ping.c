@@ -1,3 +1,4 @@
+#include <generic/rte_cycles.h>
 #include <rte_branch_prediction.h>
 #include <rte_common.h>
 #include <rte_cycles.h>
@@ -99,10 +100,8 @@ int lcore_ping(void *port) {
                  RTE_CACHE_LINE_MIN_SIZE);
 
   uint16_t tx_nb = pinfo->burst_size;
-  uint64_t wait_cycles = time_between_bursts(pinfo->bps);
   uint64_t cycles = rte_get_timer_cycles();
   uint64_t end = pinfo->rtime * rte_get_timer_hz() + cycles;
-  uint64_t deadline;
   rte_mempool_obj_iter(pinfo->send_pool, packet_mempool_ctor, pinfo);
   for (; cycles < end; cycles = rte_get_timer_cycles()) {
     if (rte_mempool_get_bulk(pinfo->send_pool, (void **)pkts, tx_nb)) {
@@ -114,7 +113,6 @@ int lcore_ping(void *port) {
     tx_nb = rte_eth_tx_burst(pinfo->port_id, pinfo->tx_queue, pkts,
                              pinfo->burst_size);
     pinfo->submit_statistics->submitted += tx_nb;
-    deadline = cycles + wait_cycles;
     uint16_t rx_nb = 0, rx_total = 0;
     do {
       rx_nb = rte_eth_rx_burst(pinfo->port_id, pinfo->rx_queue, rpkts,
@@ -122,7 +120,7 @@ int lcore_ping(void *port) {
       if (rx_nb)
         rx_total += handle_pong_rdtsc(pinfo, rpkts, rx_nb);
 
-    } while (rx_total < tx_nb && rte_get_timer_cycles() < deadline);
+    } while (rx_total < tx_nb && rte_get_timer_cycles() < end);
   }
   rte_free(pkts);
   rte_free(rpkts);
@@ -154,6 +152,12 @@ int lcore_send(void *port) {
 int main(int argc, char *argv[]) {
   struct port_info *pinfo;
   int dpdk_argc = rte_eal_init(argc, argv);
+  uint64_t f = rte_rdtsc_precise();
+  uint64_t end = f + 18 * 1996;
+  while(rte_rdtsc_precise() < end)
+      ;
+  uint64_t s = rte_rdtsc_precise();
+  printf("%lu %lu\n", (s - f) , end - f);
   if (dpdk_argc < 0)
     return -1;
   if (port_info_ctor(&pinfo, PING, argc - dpdk_argc, argv + dpdk_argc) < 0)

@@ -1,0 +1,34 @@
+
+           1004.37 msec task-clock                       #    1.003 CPUs utilized
+                60      context-switches                 #   59.739 /sec
+                 0      cpu-migrations                   #    0.000 /sec
+                 0      page-faults                      #    0.000 /sec
+        7448488812      instructions                     #    2.15  insn per cycle              (62.49%)
+        3462110227      cycles                           #    3.447 GHz                         (62.70%)
+         840871774      branches                         #  837.213 M/sec                       (62.70%)
+            276692      branch-misses                    #    0.03% of all branches             (62.67%)
+        2352614055      L1-dcache-loads                  #    2.342 G/sec                       (62.67%)
+            574795      L1-dcache-load-misses            #    0.02% of all L1-dcache accesses   (49.74%)
+             68405      LLC-loads                        #   68.107 K/sec                       (49.74%)
+                20      LLC-load-misses                  #    0.03% of all LL-cache accesses    (49.77%)
+
+       1.001703524 seconds time elapsed
+
+
+
+ Performance counter stats for process id '19628':
+
+           1001.29 msec task-clock                       #    1.000 CPUs utilized
+                 6      context-switches                 #    5.992 /sec
+                 0      cpu-migrations                   #    0.000 /sec
+                 0      page-faults                      #    0.000 /sec
+        8681540058      instructions                     #    2.50  insn per cycle              (62.45%)
+        3478856678      cycles                           #    3.474 GHz                         (62.55%)
+         917805461      branches                         #  916.622 M/sec                       (62.56%)
+            614514      branch-misses                    #    0.07% of all branches             (62.56%)
+        3573321261      L1-dcache-loads                  #    3.569 G/sec                       (62.56%)
+            773598      L1-dcache-load-misses            #    0.02% of all L1-dcache accesses   (49.93%)
+             68158      LLC-loads                        #   68.070 K/sec                       (49.93%)
+              3078      LLC-load-misses                  #    4.52% of all LL-cache accesses    (49.92%)
+
+       1.001385019 seconds time elapsed
