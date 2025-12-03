@@ -23,7 +23,6 @@
 #include <stdint.h>
 #include <stdio.h>
 
-#include "affinity.h"
 #include "packet.h"
 #include "port.h"
 #include "statistics.h"
