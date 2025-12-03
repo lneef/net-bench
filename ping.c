@@ -23,6 +23,7 @@
 #include <stdint.h>
 #include <stdio.h>
 
+#include "affinity.h"
 #include "packet.h"
 #include "port.h"
 #include "statistics.h"
@@ -61,13 +62,6 @@ static void add_timestamp_rtdsc(struct port_info *info,
     PUN(data, &pc, typeof(pc));
     packet_ipv4_udp_cksum(pkts[i], info);
   }
-}
-
-static uint64_t time_between_bursts(uint64_t bps) {
-  uint64_t interval = rte_get_timer_hz() / bps;
-  rte_log(RTE_LOG_INFO, RTE_LOGTYPE_USER1, "Time between bursts: %lu cycles\n",
-          interval);
-  return interval;
 }
 
 static void print_submit_stat(struct port_info *pinfo) {

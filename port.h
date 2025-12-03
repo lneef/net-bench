@@ -61,7 +61,6 @@ struct port_info {
   uint16_t burst_size;
   uint16_t rx_queue;
   uint16_t tx_queue;
-  uint64_t bps;
   uint64_t rtime;
   uint16_t current_flow;
   union{

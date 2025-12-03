@@ -19,6 +19,7 @@
 #include <stdbool.h>
 #include <stdint.h>
 #include <sys/socket.h>
+#include <sched.h>
 
 #include "packet.h"
 #include "port.h"
@@ -161,6 +162,7 @@ int main(int argc, char *argv[]) {
   sa.sa_handler = handler;
   sigaction(SIGINT, &sa, NULL);
   sigaction(SIGTERM, &sa, NULL);
+  
   int dpdk_argc = rte_eal_init(argc, argv);
   if (dpdk_argc < 0)
     return -1;
