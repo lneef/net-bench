@@ -152,12 +152,6 @@ int lcore_send(void *port) {
 int main(int argc, char *argv[]) {
   struct port_info *pinfo;
   int dpdk_argc = rte_eal_init(argc, argv);
-  uint64_t f = rte_rdtsc_precise();
-  uint64_t end = f + 18 * 1996;
-  while(rte_rdtsc_precise() < end)
-      ;
-  uint64_t s = rte_rdtsc_precise();
-  printf("%lu %lu\n", (s - f) , end - f);
   if (dpdk_argc < 0)
     return -1;
   if (port_info_ctor(&pinfo, PING, argc - dpdk_argc, argv + dpdk_argc) < 0)
