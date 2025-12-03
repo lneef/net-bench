@@ -30,7 +30,8 @@ static int port_init_cmdline(struct port_info *info, int argc, char **argv) {
       {"dip", required_argument, 0, 0},   {"sip", required_argument, 0, 0},
       {"bps", required_argument, 0, 0},   {"rt", required_argument, 0, 0},
       {"bs", required_argument, 0, 0},    {"dmac", required_argument, 0, 0},
-      {"mode", required_argument, 0, 0},  {0, 0, 0, 0}};
+      {"mode", required_argument, 0, 0},  {"flows", required_argument, 0, 0},
+      {0, 0, 0, 0}};
   while ((opt = getopt_long(argc, argv, "", long_options, &option_index)) !=
          -1) {
     if (opt == '?')
@@ -62,6 +63,10 @@ static int port_init_cmdline(struct port_info *info, int argc, char **argv) {
       break;
     case 8:
       parse_mode(info, optarg);
+      break;
+    case 9:
+      info->pkt_config.udp.flows = atoi(optarg);
+      break;
     default:
       break;
     }
@@ -176,6 +181,8 @@ int port_info_ctor(struct port_info **info, enum role role, int argc,
   if (!*info)
     return -1;
   (*info)->bps = 1;
+  (*info)->pkt_config.udp.flows = 1;
+  (*info)->current_flow = 0;
   (*info)->burst_size = BURST_SIZE;
   (*info)->pkt_config.frame_size = RTE_ETHER_MIN_LEN - RTE_ETHER_CRC_LEN;
   (*info)->statistics = (struct stat *)rte_calloc(NULL, 1, sizeof(struct stat),

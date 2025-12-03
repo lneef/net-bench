@@ -44,6 +44,7 @@ struct ipv4_config {
 struct udp_config {
   uint16_t src_port;
   uint16_t dst_port;
+  uint16_t flows;
   bool chcksum_offload;
   bool rx_chcksum_offload;
 };
@@ -62,6 +63,7 @@ struct port_info {
   uint16_t tx_queue;
   uint64_t bps;
   uint64_t rtime;
+  uint16_t current_flow;
   union{
       enum pirole pimode;
       enum porole pomode;

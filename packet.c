@@ -25,14 +25,15 @@ int packet_eth_ctor(struct rte_mbuf *mbuf, struct rte_ether_hdr *eth,
 }
 
 int packet_udp_ctor(struct rte_mbuf *mbuf, struct rte_udp_hdr *udp,
-                    struct udp_config *config, uint16_t dgram_len) {
-  udp->src_port = rte_cpu_to_be_16(config->src_port);
-  udp->dst_port = rte_cpu_to_be_16(config->dst_port);
+                    struct udp_config *config, uint16_t dgram_len, uint16_t* flow) {
+  udp->src_port = rte_cpu_to_be_16(config->src_port + *flow);
+  udp->dst_port = rte_cpu_to_be_16(config->dst_port + *flow);
   udp->dgram_len = rte_cpu_to_be_16(dgram_len);
   udp->dgram_cksum = 0;
   mbuf->l4_len = sizeof(struct rte_udp_hdr);
   mbuf->data_len += dgram_len;
   mbuf->pkt_len += dgram_len;
+  *flow = (*flow + 1) % config->flows;
   return 0;
 }
 
@@ -54,7 +55,8 @@ int packet_ipv4_ctor(struct rte_mbuf *mbuf, struct rte_ipv4_hdr *ipv4,
   return 0;
 }
 
-int packet_pp_ctor_udp(struct rte_mbuf *mbuf, struct packet_config *config) {
+int packet_pp_ctor_udp(struct rte_mbuf *mbuf, struct port_info *pinfo) {
+  struct packet_config *config = (struct packet_config*)&pinfo->pkt_config; 
   struct rte_ether_hdr *eth = rte_pktmbuf_mtod(mbuf, struct rte_ether_hdr *);
   struct rte_ipv4_hdr *ipv4 = (struct rte_ipv4_hdr *)(eth + 1);
   struct rte_udp_hdr *udp = (struct rte_udp_hdr *)(ipv4 + 1);
@@ -62,7 +64,7 @@ int packet_pp_ctor_udp(struct rte_mbuf *mbuf, struct packet_config *config) {
   mbuf->pkt_len = 0;
   uint32_t payload = config->frame_size - HDR_SIZE;
   packet_udp_ctor(mbuf, udp, &config->udp,
-                  payload += sizeof(struct rte_udp_hdr));
+                  payload += sizeof(struct rte_udp_hdr), &pinfo->current_flow);
   packet_ipv4_ctor(mbuf, ipv4, &config->ipv4,
                    payload += sizeof(struct rte_ipv4_hdr));
   packet_eth_ctor(mbuf, eth, &config->eth,
@@ -150,7 +152,7 @@ void packet_mempool_ctor(struct rte_mempool *mp, void *opaque, void *obj,
                          unsigned int obj_idx __rte_unused) {
   struct rte_mbuf *mbuf = (struct rte_mbuf *)obj;
   struct port_info *info = (struct port_info *)opaque;
-  packet_pp_ctor_udp(mbuf, &info->pkt_config);
+  packet_pp_ctor_udp(mbuf, info);
 
   mbuf->port = info->port_id;
   mbuf->pool = mp;
@@ -160,7 +162,7 @@ void packet_mempool_ctor_full(struct rte_mempool *mp, void *opaque, void *obj,
                          unsigned int obj_idx __rte_unused) {
   struct rte_mbuf *mbuf = (struct rte_mbuf *)obj;
   struct port_info *info = (struct port_info *)opaque;
-  packet_pp_ctor_udp(mbuf, &info->pkt_config);
+  packet_pp_ctor_udp(mbuf, info);
 
   packet_ipv4_udp_cksum(mbuf, info);
   mbuf->port = info->port_id;
