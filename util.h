@@ -1,5 +1,6 @@
 #ifndef UTIL_H
 #define UTIL_H
+#include <cstdint>
 #include <generic/rte_byteorder.h>
 #include <netinet/in.h>
 #include <rte_byteorder.h>
@@ -33,6 +34,11 @@
   do {                                                                         \
     rte_memcpy(target, src, sizeof(T));                                        \
   } while (0)
+
+struct lcore_adapter{
+    port_info& info;
+    benchmark_config& config;
+};
 
 typedef int (*packet_ipv4)(struct port_info *, struct rte_mbuf *);
 
